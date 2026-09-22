@@ -1,0 +1,16 @@
+# devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+.direnv
+
+# Cargo
+/target/
+
+# artefakty
+# lokalna instalacja Phonemis (runner + wagi), tworzy ją pk-phonemis-build
+
+/phonemis/
+/bin/
+/models/
+*.wav

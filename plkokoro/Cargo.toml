@@ -1,0 +1,30 @@
+[package]
+name = "plkokoro"
+description = "Polski TTS: Kokoro (ONNX) + Phonemis (tekst -> IPA)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "api-21", "load-dynamic"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1"
+ureq = "3"
+log = "0.4"
+
+[features]
+# Providery ONNX Runtime (poza CPU) — włączają tylko odpowiednie typy w crate `ort`; faktyczna dostępność zależy od
+# załadowanej libonnxruntime.so w czasie działania.
+cuda = ["ort/cuda"]
+tensorrt = ["ort/tensorrt"]
+rocm = ["ort/rocm"]
+migraphx = ["ort/migraphx"]
+coreml = ["ort/coreml"]
+directml = ["ort/directml"]
+openvino = ["ort/openvino"]
+
+[dev-dependencies]
+tiny_http = "0.12"
+tempfile = "3"
