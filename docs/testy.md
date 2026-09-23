@@ -10,7 +10,7 @@ pakiety Nix z devenv).
 | 0 | środowisko | `pk-doctor` | devenv | zależności są na miejscu |
 | 1 | logika, bez ORT | `env -u ORT_LIBRARY_PATH cargo test --workspace -- --nocapture` | Rust | tekst, zgodność z Pythonem, G2P, magazyn modelu, WAV, logika modelu na atrapie, CLI bez ORT |
 | 2 | pełny zestaw z ORT | `pk-test` | ORT ≥ 1.21 | + inferencja na prawdziwej sesji ORT, cykl życia, współbieżność, CLI end-to-end |
-| 3 | pakiety Nix | `nix-build` `nix/phonemis.nix`, `nix/kokoro-model.nix` | Nix, sieć | budowanie Phonemis, wagi i model z sumami SHA-256, test dymny runnera w każdym języku |
+| 3 | pakiety Nix | `devenv shell -- pk-doctor` z listą w `devenv.local.nix` | Nix, sieć | budowanie Phonemis, wagi i model z sumami SHA-256, test dymny runnera w każdym języku |
 | 4 | akceptacja na prawdziwych danych | ręcznie, A1–A10 | devenv (pakiety Nix) | działa naprawdę; jakość mowy |
 | 5 | zgodność z Pythonem | diff IPA + regeneracja korpusu | projekt Pythona | ten sam wynik co wersja referencyjna |
 
@@ -144,11 +144,11 @@ i głosu (2026-09-23): ORT 1.27.1 z nixpkgs, rustc 1.98.1, `--test-threads=1` = 
 ## Poziom 3 — pakiety Nix
 
 ```fish
-nix-build --no-out-link -E 'with import <nixpkgs> {}; callPackage ./nix/phonemis.nix { languages = [ "pl" "de" "en-us" ]; }'
-nix-build --no-out-link -E 'with import <nixpkgs> {}; callPackage ./nix/kokoro-model.nix { voices = [ "pm_mateusz" "df_anna" ]; }'
+# devenv.local.nix: { lib, ... }: { plkokoro.voices = [ "pm_mateusz" "df_anna" ]; plkokoro.phonemisLanguages = [ "pl" "de" "en-us" ]; }
+devenv shell -- pk-doctor
 ```
 
-**Kryterium zaliczenia:** oba kończą się ścieżką w `/nix/store`. `nix/phonemis.nix` ma `installCheckPhase`: runner
+**Kryterium zaliczenia:** `pk-doctor` bez `BRAK`, z liniami wag dla każdego języka i głosów z listy. `nix/phonemis.nix` ma `installCheckPhase`: runner
 fonemizuje „Test 123.” w każdym języku i musi dać niepuste IPA (w logu `phonemis pl: tˈɛst stˈɔ dvadʒˈɛɕtɕa tʃˈɨ.`).
 Złe sumy SHA-256 przerywają pobieranie. Nieznany głos/język przerywa już ewaluację z listą dostępnych.
 
@@ -263,7 +263,6 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
   ale nie były uruchamiane na GPU (CUDA, ROCm, MIGraphX, …).
 - **Zwolnienie pamięci z prawdziwym modelem** (A8) — z atrapą sama biblioteka ORT dominuje pomiar.
 - **Systemy i architektury poza Linux x86_64**.
-- **Nadpisanie `plkokoro.voices` przez prawdziwy `devenv.local.nix`** — pakiety z innymi listami budowane `nix-build`.
 - **Drugi Ctrl+C (kod 130)** i zawieszone połączenie w trakcie odczytu ciała pobieranego pliku.
 - **Testy upstreamu Phonemis** (`phonemis_test`) — nie uruchamiane.
 
@@ -283,7 +282,7 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
 | `http_errors_and_truncation` wisi | brak limitów czasu w kliencie HTTP albo serwer testowy nie zamyka połączenia (używamy surowego TCP, nie `tiny_http`) |
 | `SIGABRT` w `wav_engine` przy równoległym `pk-test` | znany problem `ort` (poziom 2) — uruchom `pk-test -- --test-threads=1` |
 | budowanie `nix/phonemis.nix` pada na kompilacji | nowszy kompilator wymaga kolejnych nagłówków w liście `-include` (`NIX_CFLAGS_COMPILE`) |
-| `hash mismatch` w `nix-build` | zmieniony plik po stronie HF/GitHub — sprawdź rewizję i sumy ([devenv.md](devenv.md), „Podbijanie wersji”) |
+| `hash mismatch` przy `devenv shell` | zmieniony plik po stronie HF/GitHub — sprawdź rewizję i sumy ([devenv.md](devenv.md), „Podbijanie wersji”) |
 | A5: cisza lub szum | zły model/głos w katalogu modelu (np. `KOKORO_MODEL_DIR` nadpisany ręcznie) |
 
 ---

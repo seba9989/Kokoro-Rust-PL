@@ -1,16 +1,17 @@
 # Środowisko devenv (Nix)
 
-Pliki: `devenv.nix`, `devenv.yaml`, `nix/phonemis.nix`, `nix/kokoro-model.nix`, `nix/catalog.json`.
+Pliki: `devenv.nix`, `devenv.yaml`, `nix/phonemis.nix`, `nix/kokoro-model.nix` (moduły devenv, wczytywane przez
+`imports` w `devenv.nix`), `nix/catalog.json`.
 
 Wszystkie zależności czasu działania są **deklaratywnymi pakietami Nix** (ten sam wzór co w aplikacji Koko-Anime):
 przypięta rewizja, sumy SHA-256, budowane i pobierane przez `devenv shell` hermetycznie, cache'owane jak każdy pakiet.
 Nic nie jest klonowane, kompilowane ani pobierane w `enterShell`.
 
-| Pakiet | Źródło | Zawartość |
+| Pakiet (moduł) | Źródło | Zawartość |
 |---|---|---|
-| `pkgs.onnxruntime` | nixpkgs | `libonnxruntime.so` (ładowana dynamicznie przez crate `ort`) |
-| `nix/phonemis.nix` | `IgorSwat/Phonemis` @ `71eb1ce` (CMake) + wagi z Git LFS (`fetchurl`, sha256 = `oid` ze wskaźnika LFS) | `build/phonemis_runner`, `data/<język>/phonemizer_<język>.bin` (+ `lexicon_full.json`, `tagger.json` dla `en-us`/`en-gb`) dla języków z `plkokoro.phonemisLanguages`; `installCheckPhase` fonemizuje „Test 123.” w każdym języku |
-| `nix/kokoro-model.nix` | `Shusek00/kokoro-kmp-models` @ `v2.1.1` (`fetchurl`, sumy z `nix/catalog.json`) | `v2.1.1/catalog.json` (prawdziwy, pełny), głosy z `plkokoro.voices`, ich modele ONNX i tokenizery — układ `plkokoro::Store` |
+| `pkgs.onnxruntime` (`devenv.nix`) | nixpkgs | `libonnxruntime.so` (ładowana dynamicznie przez crate `ort`) |
+| `nix/phonemis.nix` — opcje `plkokoro.phonemisLanguages`, `plkokoro.phonemis`; ustawia `PHONEMIS_RUNNER` | `IgorSwat/Phonemis` @ `71eb1ce` (CMake) + wagi z Git LFS (`fetchurl`, sha256 = `oid` ze wskaźnika LFS) | `build/phonemis_runner`, `data/<język>/phonemizer_<język>.bin` (+ `lexicon_full.json`, `tagger.json` dla `en-us`/`en-gb`) dla języków z `plkokoro.phonemisLanguages`; `installCheckPhase` fonemizuje „Test 123.” w każdym języku |
+| `nix/kokoro-model.nix` — opcje `plkokoro.voices`, `plkokoro.kokoroModel`; ustawia `KOKORO_MODEL_DIR` | `Shusek00/kokoro-kmp-models` @ `v2.1.1` (`fetchurl`, sumy z `nix/catalog.json`) | `v2.1.1/catalog.json` (prawdziwy, pełny), głosy z `plkokoro.voices`, ich modele ONNX i tokenizery — układ `plkokoro::Store` |
 
 `nix/catalog.json` to kopia katalogu z Hugging Face (sprawdzona `sha256sum`); czytana przy ewaluacji, więc ścieżki
 i sumy artefaktów pochodzą z niej bez import-from-derivation.
@@ -31,7 +32,8 @@ devenv automatycznie wczytuje `devenv.local.nix` (jest w `.gitignore`):
 | Opcja | Domyślnie | Znaczenie |
 |---|---|---|
 | `plkokoro.voices` | `[ "pm_mateusz" ]` | głosy Kokoro w pakiecie modelu; nieznany głos przerywa ewaluację z podpowiedzią |
-| `plkokoro.phonemisLanguages` | `textFrontend.language` języków wybranych głosów (z katalogu) + `pl` | wagi Phonemis instalowane obok runnera; dostępne: `pl en-us en-gb de fr es it pt hi` |
+| `plkokoro.phonemisLanguages` | `textFrontend.language` języków wybranych głosów (z katalogu) + `pl` | wagi Phonemis instalowane obok runnera; typ `enum`: `pl en-us en-gb de fr es it pt hi` |
+| `plkokoro.kokoroModel`, `plkokoro.phonemis` | — (tylko do odczytu) | zbudowane pakiety, np. do użycia w innych modułach (`config.plkokoro.phonemis`) |
 
 Katalog modelu leży w `/nix/store` (tylko do odczytu): głos spoza `plkokoro.voices` daje błąd „katalog … jest tylko do
 odczytu — dodaj głos do plkokoro.voices”. Żeby biblioteka pobierała dowolne głosy sama, wskaż katalog z prawem zapisu:
@@ -73,12 +75,9 @@ Katalogi `phonemis/` i `models/` w projekcie, jeśli zostały z tamtego układu,
 - **Model**: nowa rewizja wymaga zmiany `plkokoro::REVISION`, `revision` w `nix/kokoro-model.nix` i nowej kopii
   `nix/catalog.json` (asercja pilnuje zgodności `catalogVersion`).
 
-Pakiety można budować i poza devenv:
-
-```fish
-nix-build -E 'with import <nixpkgs> {}; callPackage ./nix/phonemis.nix { languages = [ "pl" "de" ]; }'
-nix-build -E 'with import <nixpkgs> {}; callPackage ./nix/kokoro-model.nix { voices = [ "pm_mateusz" "df_anna" ]; }'
-```
+Pakiety buduje `devenv shell` (np. `devenv shell -- true` po zmianie listy w `devenv.local.nix`). Nieznany głos
+przerywa ewaluację komunikatem `plkokoro.voices: nieznane głosy …`, a nieobsługiwany język — błędem typu opcji
+`plkokoro.phonemisLanguages` z listą dozwolonych.
 
 Uwaga (fish): `set NAZWA wartość` bez `-gx` nie eksportuje zmiennej do procesów potomnych — użyj `set -gx`.
 
@@ -89,6 +88,8 @@ Sprawdzone (2026-09-23, nixpkgs rolling: rustc 1.98.1, ORT 1.27.1): `devenv shel
 `pm_mateusz df_anna` (oba modele, jeden tokenizer); synteza pl i de oraz krzyżowa (głos `df_anna`, fonemizer `pl`)
 z plików pakietów; czytelny błąd dla głosu spoza pakietu; `cargo test --workspace` w tej powłoce.
 
-**Nie sprawdzono**: nadpisania `plkokoro.voices` przez prawdziwy `devenv.local.nix` (pakiety z innymi listami budowane
-przez `nix-build`); jakości fonemizacji i syntezy poza pl/de; języków Phonemis `fr es it pt hi en-gb` (sumy z
+Nadpisanie przez `devenv.local.nix` (`plkokoro.voices = [ "pm_mateusz" "df_anna" ]` → Phonemis `de pl`) i oba
+błędy opcji sprawdzone po przeniesieniu opcji do modułów.
+
+**Nie sprawdzono**: jakości fonemizacji i syntezy poza pl/de; języków Phonemis `fr es it pt hi en-gb` (sumy z
 wskaźników LFS, bez budowania).

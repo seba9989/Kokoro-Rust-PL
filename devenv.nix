@@ -6,10 +6,11 @@
 # budowane/pobierane przez `devenv shell` hermetycznie i cache'owane jak każdy pakiet. Nic nie jest klonowane,
 # kompilowane ani pobierane w enterShell.
 #
-#   ort          — pkgs.onnxruntime (z nixpkgs)
-#   phonemis     — nix/phonemis.nix: phonemis_runner (CMake) + wagi języków z `plkokoro.phonemisLanguages`
-#   kokoro-model — nix/kokoro-model.nix: głosy z `plkokoro.voices` + ich modele ONNX i tokenizery (sumy SHA-256
-#                  z nix/catalog.json — kopii prawdziwego katalogu)
+#   ort          — pkgs.onnxruntime (z nixpkgs), tutaj
+#   phonemis     — moduł nix/phonemis.nix: opcja `plkokoro.phonemisLanguages`, pakiet phonemis_runner (CMake)
+#                  + wagi tych języków, PHONEMIS_RUNNER
+#   kokoro-model — moduł nix/kokoro-model.nix: opcja `plkokoro.voices`, pakiet z głosami + ich modelami ONNX
+#                  i tokenizerami (sumy SHA-256 z nix/catalog.json — kopii prawdziwego katalogu), KOKORO_MODEL_DIR
 #
 # Wybór głosów i języków (i inne nadpisania) wpisuj do devenv.local.nix — devenv wczytuje go automatycznie, jest
 # w .gitignore. Przykład:
@@ -24,29 +25,12 @@ let
   # libonnxruntime.so z nixpkgs. Crate `ort` ładuje ją dynamicznie (cecha load-dynamic), więc nic nie jest
   # linkowane w czasie budowania. Testowane z 1.21.0, 1.22.0, 1.23.2, 1.27.1 i 1.30.0.
   ort = pkgs.onnxruntime;
-  kokoroModel = pkgs.callPackage ./nix/kokoro-model.nix { inherit (cfg) voices; };
-  phonemis = pkgs.callPackage ./nix/phonemis.nix { languages = cfg.phonemisLanguages; };
 in
 {
-  options.plkokoro = {
-    voices = lib.mkOption {
-      type = lib.types.nonEmptyListOf lib.types.str;
-      default = [ "pm_mateusz" ];
-      example = [ "pm_mateusz" "df_anna" "af_heart" ];
-      description = ''
-        Głosy Kokoro (id z nix/catalog.json) spakowane do KOKORO_MODEL_DIR razem z modelami i tokenizerami, których
-        wymagają. Katalog jest w /nix/store (tylko do odczytu): głos spoza listy daje błąd z podpowiedzią.
-      '';
-    };
-    phonemisLanguages = lib.mkOption {
-      type = lib.types.nonEmptyListOf lib.types.str;
-      default = lib.intersectLists (kokoroModel.passthru.phonemisLanguages ++ [ "pl" ])
-        (pkgs.callPackage ./nix/phonemis.nix { }).passthru.supportedLanguages;
-      defaultText = lib.literalMD "języki frontendu tekstowego wybranych głosów (z katalogu) + `pl`";
-      example = [ "pl" "de" "en-us" ];
-      description = "Języki Phonemis, których wagi są instalowane obok phonemis_runner (kody jak plkokoro::PHONEMIS_LANGS).";
-    };
-  };
+  imports = [
+    ./nix/phonemis.nix
+    ./nix/kokoro-model.nix
+  ];
 
   config = {
     # Rust z nixpkgs (rustc, cargo, clippy, rustfmt, rust-analyzer). Żeby użyć nowszego toolchaina niż w nixpkgs:
@@ -54,20 +38,15 @@ in
     languages.rust.enable = true;
 
     # Kompilator C dla zależności budowanych z C (ring w ureq/rustls) dostarcza stdenv devenv.
+    # Pakiety Phonemis i modelu dodają moduły z nix/.
     packages = [
       pkgs.git # devenv nie dodaje gita do powłoki
-      phonemis
-      kokoroModel
     ];
 
     env = {
-      # Czytane przez bibliotekę (Config::* ma pierwszeństwo). Ścieżki w /nix/store; nadpisanie w devenv.local.nix
-      # (lib.mkDefault niżej), np. env.KOKORO_MODEL_DIR = "/home/…/models" — katalog z prawem zapisu, do którego
-      # biblioteka sama pobierze dowolny głos.
+      # Czytane przez bibliotekę (Config::* ma pierwszeństwo). PHONEMIS_RUNNER i KOKORO_MODEL_DIR ustawiają moduły
+      # z nix/ (niski priorytet — nadpisywalne w devenv.local.nix).
       ORT_LIBRARY_PATH = "${lib.getLib ort}/lib/libonnxruntime.so";
-      # Wagi biblioteka znajduje sama: <pakiet>/data/<język>/phonemizer_<język>.bin obok <pakiet>/build/phonemis_runner.
-      PHONEMIS_RUNNER = lib.mkDefault "${phonemis}/build/phonemis_runner";
-      KOKORO_MODEL_DIR = lib.mkDefault "${kokoroModel}";
       # KOKORO_LANG / KOKORO_VOICE celowo nieustawione: zmieniałyby domyślne zachowanie testów (`pk-test`).
     };
 

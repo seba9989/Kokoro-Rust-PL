@@ -1,13 +1,11 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, fetchurl
-, cmake
-  # Języki fonemizera do zainstalowania (kody profili Phonemis, jak plkokoro::PHONEMIS_LANGS).
-, languages ? [ "pl" ]
-}:
+{ pkgs, lib, config, ... }:
 
+# Moduł devenv: Phonemis jako pakiet Nix — phonemis_runner zbudowany z CMake + wagi języków
+# z `plkokoro.phonemisLanguages` (Git LFS, `fetchurl`). Ustawia PHONEMIS_RUNNER. Wczytywany przez `imports`
+# w devenv.nix.
 let
+  cfg = config.plkokoro;
+
   # Podbijaj ręcznie razem z sumami niżej: `git ls-remote https://github.com/IgorSwat/Phonemis.git HEAD`, potem
   # `nix-prefetch-url --unpack https://github.com/IgorSwat/Phonemis/archive/<rev>.tar.gz` (źródła) oraz nowe `oid`
   # z plików-wskaźników LFS: `curl -sL https://raw.githubusercontent.com/IgorSwat/Phonemis/<rev>/data/<lang>/<plik>`.
@@ -35,99 +33,125 @@ let
       "tagger.json" = "af2fe9831e8560fa78ebf7d96da715ce5ecb43a3363bd701c952a6db206f169c";
     };
   };
+  supportedLanguages = lib.attrNames files;
 
-  unknown = lib.filter (l: !(files ? ${l})) languages;
+  mkPhonemis = languages:
+    let
+      unknown = lib.filter (l: !(files ? ${l})) languages;
+      # [ { lang; name; src; } ] dla wszystkich plików wybranych języków
+      dataFiles = lib.concatMap
+        (lang: lib.mapAttrsToList
+          (name: sha256: {
+            inherit lang name;
+            src = pkgs.fetchurl {
+              url = "https://media.githubusercontent.com/media/IgorSwat/Phonemis/${rev}/data/${lang}/${name}";
+              inherit sha256;
+            };
+          })
+          files.${lang})
+        languages;
+    in
+    assert lib.assertMsg (unknown == [ ])
+      "plkokoro.phonemisLanguages: nieznane języki ${toString unknown}; dostępne: ${toString supportedLanguages}";
+    pkgs.stdenv.mkDerivation {
+      pname = "phonemis";
+      version = "unstable-2026-09-22";
 
-  # [ { lang; name; src; } ] dla wszystkich plików wybranych języków
-  dataFiles = lib.concatMap
-    (lang: lib.mapAttrsToList
-      (name: sha256: {
-        inherit lang name;
-        src = fetchurl {
-          url = "https://media.githubusercontent.com/media/IgorSwat/Phonemis/${rev}/data/${lang}/${name}";
-          inherit sha256;
-        };
-      })
-      files.${lang})
-    languages;
+      src = pkgs.fetchFromGitHub {
+        owner = "IgorSwat";
+        repo = "Phonemis";
+        inherit rev;
+        sha256 = "0y9bnmxlr1zmvany2qsgszgpi3j129cwf9hf3y1bpymxkspc4npc";
+      };
+
+      nativeBuildInputs = [ pkgs.cmake ];
+
+      # Phonemis nie #include'uje jawnie kilku nagłówków biblioteki standardowej, na których polega (błąd upstream);
+      # nowsze libstdc++ nie dociągają ich przechodnio. `NIX_CFLAGS_COMPILE` trafia do każdego wywołania kompilatora.
+      env.NIX_CFLAGS_COMPILE = toString (map (h: "-include ${h}") [
+        "optional"
+        "string"
+        "string_view"
+        "cstdint"
+        "cstddef"
+        "vector"
+        "unordered_map"
+        "unordered_set"
+        "map"
+        "memory"
+        "algorithm"
+        "stdexcept"
+        "functional"
+        "variant"
+        "array"
+        "cmath"
+      ]);
+
+      cmakeFlags = [
+        "-DBUILD_RUNNER=ON"
+        "-DBUILD_TESTS=OFF"
+        "-DCMAKE_BUILD_TYPE=Release"
+      ];
+
+      # CMakeLists.txt Phonemis nie ma reguł install(). Układ <out>/build/phonemis_runner + <out>/data/<lang>/… jest
+      # wymagany: RunnerG2p::new wyprowadza ścieżkę wag z położenia runnera (<repo>/data/<lang>/phonemizer_<lang>.bin),
+      # a leksykon i tagger angielskiego szuka obok wag.
+      installPhase = ''
+        runHook preInstall
+        install -Dm755 phonemis_runner "$out/build/phonemis_runner"
+        ${lib.concatMapStrings (f: ''
+          install -Dm644 ${f.src} "$out/data/${f.lang}/${f.name}"
+        '') dataFiles}
+        install -Dm644 "$src/LICENSE" "$out/LICENSE"
+        printf 'phonemis %s\njęzyki: %s\nzbudowane przez Nix (nix/phonemis.nix)\n' ${rev} "${toString languages}" > "$out/BUILDINFO"
+        runHook postInstall
+      '';
+
+      # Test dymny na zainstalowanych plikach: runner działa z wagami każdego języka i zwraca niepuste IPA.
+      doInstallCheck = true;
+      installCheckPhase = ''
+        runHook preInstallCheck
+        ${lib.concatMapStrings (lang: ''
+          out_ipa="$("$out/build/phonemis_runner" --lang ${lang} --model "$out/data/${lang}/phonemizer_${lib.replaceStrings [ "-" ] [ "_" ] lang}.bin" "Test 123." | sed "s/\x1b\[[0-9;]*m//g" | sed -n "s/^Output: //p")"
+          echo "phonemis ${lang}: $out_ipa"
+          [ -n "$(echo "$out_ipa" | tr -d ' ')" ] || { echo "phonemis ${lang}: puste IPA" >&2; exit 1; }
+        '') languages}
+        runHook postInstallCheck
+      '';
+
+      passthru = { inherit languages rev supportedLanguages; };
+
+      meta = {
+        description = "Phonemis — G2P dla Kokoro: phonemis_runner + wagi wybranych języków (${toString languages})";
+        homepage = "https://github.com/IgorSwat/Phonemis";
+        license = lib.licenses.mit;
+        platforms = lib.platforms.unix;
+        mainProgram = "phonemis_runner";
+      };
+    };
 in
-assert lib.assertMsg (unknown == [ ])
-  "nix/phonemis.nix: nieznane języki ${toString unknown}; dostępne: ${toString (lib.attrNames files)}";
-assert lib.assertMsg (languages != [ ]) "nix/phonemis.nix: lista languages jest pusta";
-
-stdenv.mkDerivation {
-  pname = "phonemis";
-  version = "unstable-2026-09-22";
-
-  src = fetchFromGitHub {
-    owner = "IgorSwat";
-    repo = "Phonemis";
-    inherit rev;
-    sha256 = "0y9bnmxlr1zmvany2qsgszgpi3j129cwf9hf3y1bpymxkspc4npc";
+{
+  options.plkokoro = {
+    phonemisLanguages = lib.mkOption {
+      type = lib.types.nonEmptyListOf (lib.types.enum supportedLanguages);
+      # Frontendy tekstowe języków wybranych głosów (z katalogu, patrz nix/kokoro-model.nix) + pl.
+      default = lib.intersectLists (cfg.kokoroModel.passthru.phonemisLanguages ++ [ "pl" ]) supportedLanguages;
+      defaultText = lib.literalMD "języki frontendu tekstowego głosów z `plkokoro.voices` (z katalogu) + `pl`";
+      example = [ "pl" "de" "en-us" ];
+      description = "Języki Phonemis, których wagi są instalowane obok phonemis_runner (kody jak plkokoro::PHONEMIS_LANGS).";
+    };
+    phonemis = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      default = mkPhonemis cfg.phonemisLanguages;
+      defaultText = lib.literalMD "phonemis_runner + wagi `plkokoro.phonemisLanguages`";
+      description = "Zbudowany pakiet Phonemis (passthru: languages, supportedLanguages, rev).";
+    };
   };
 
-  nativeBuildInputs = [ cmake ];
-
-  # Phonemis nie #include'uje jawnie kilku nagłówków biblioteki standardowej, na których polega (błąd upstream);
-  # nowsze libstdc++ nie dociągają ich przechodnio. `NIX_CFLAGS_COMPILE` trafia do każdego wywołania kompilatora.
-  env.NIX_CFLAGS_COMPILE = toString (map (h: "-include ${h}") [
-    "optional"
-    "string"
-    "string_view"
-    "cstdint"
-    "cstddef"
-    "vector"
-    "unordered_map"
-    "unordered_set"
-    "map"
-    "memory"
-    "algorithm"
-    "stdexcept"
-    "functional"
-    "variant"
-    "array"
-    "cmath"
-  ]);
-
-  cmakeFlags = [
-    "-DBUILD_RUNNER=ON"
-    "-DBUILD_TESTS=OFF"
-    "-DCMAKE_BUILD_TYPE=Release"
-  ];
-
-  # CMakeLists.txt Phonemis nie ma reguł install(). Układ <out>/build/phonemis_runner + <out>/data/<lang>/… jest
-  # wymagany: RunnerG2p::new wyprowadza ścieżkę wag z położenia runnera (<repo>/data/<lang>/phonemizer_<lang>.bin),
-  # a leksykon i tagger angielskiego szuka obok wag.
-  installPhase = ''
-    runHook preInstall
-    install -Dm755 phonemis_runner "$out/build/phonemis_runner"
-    ${lib.concatMapStrings (f: ''
-      install -Dm644 ${f.src} "$out/data/${f.lang}/${f.name}"
-    '') dataFiles}
-    install -Dm644 "$src/LICENSE" "$out/LICENSE"
-    printf 'phonemis %s\njęzyki: %s\nzbudowane przez Nix (nix/phonemis.nix)\n' ${rev} "${toString languages}" > "$out/BUILDINFO"
-    runHook postInstall
-  '';
-
-  # Test dymny na zainstalowanych plikach: runner działa z wagami każdego języka i zwraca niepuste IPA.
-  doInstallCheck = true;
-  installCheckPhase = ''
-    runHook preInstallCheck
-    ${lib.concatMapStrings (lang: ''
-      out_ipa="$("$out/build/phonemis_runner" --lang ${lang} --model "$out/data/${lang}/phonemizer_${lib.replaceStrings [ "-" ] [ "_" ] lang}.bin" "Test 123." | sed "s/\x1b\[[0-9;]*m//g" | sed -n "s/^Output: //p")"
-      echo "phonemis ${lang}: $out_ipa"
-      [ -n "$(echo "$out_ipa" | tr -d ' ')" ] || { echo "phonemis ${lang}: puste IPA" >&2; exit 1; }
-    '') languages}
-    runHook postInstallCheck
-  '';
-
-  passthru = { inherit languages rev; supportedLanguages = lib.attrNames files; };
-
-  meta = {
-    description = "Phonemis — G2P dla Kokoro: phonemis_runner + wagi wybranych języków (${toString languages})";
-    homepage = "https://github.com/IgorSwat/Phonemis";
-    license = lib.licenses.mit;
-    platforms = lib.platforms.unix;
-    mainProgram = "phonemis_runner";
+  config = {
+    packages = [ cfg.phonemis ];
+    # Wagi biblioteka znajduje sama: <pakiet>/data/<język>/phonemizer_<język>.bin obok <pakiet>/build/phonemis_runner.
+    env.PHONEMIS_RUNNER = lib.mkDefault "${cfg.phonemis}/build/phonemis_runner";
   };
 }
