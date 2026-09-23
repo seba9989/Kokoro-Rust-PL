@@ -16,7 +16,10 @@ use crate::Config;
 
 pub const REPO_ID: &str = "Shusek00/kokoro-kmp-models";
 pub const REVISION: &str = "v2.1.1";
-pub const LANG_ID: &str = "pl";
+/// Domyślny język mówcy (i fonemizera), gdy `Config::lang` jest puste.
+pub const DEFAULT_LANG: &str = "pl";
+#[deprecated(note = "użyj DEFAULT_LANG albo Config::lang")]
+pub const LANG_ID: &str = DEFAULT_LANG;
 /// Częstotliwość próbkowania Kokoro-82M.
 pub const SAMPLE_RATE: u32 = 24000;
 /// Maksymalna liczba fonemów w jednym przebiegu (liczba wierszy macierzy stylu).
@@ -112,7 +115,7 @@ impl Store {
             )));
         }
         if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
+            std::fs::create_dir_all(parent).map_err(|e| self.write_error(rel, e))?;
         }
         let segs: Vec<String> = rel.split('/').map(encode_segment).collect();
         let url = format!("{}/{}/resolve/{}/{}", self.endpoint, REPO_ID, encode_segment(REVISION), segs.join("/"));
@@ -137,8 +140,8 @@ impl Store {
         let expected = resp.body().content_length();
 
         let part = PathBuf::from(format!("{}.part", dest.display()));
+        let mut f = std::fs::File::create(&part).map_err(|e| self.write_error(rel, e))?;
         let copied = (|| -> Result<u64> {
-            let mut f = std::fs::File::create(&part)?;
             let mut reader = resp.body_mut().as_reader();
             let mut buf = vec![0u8; 64 * 1024];
             let mut total = 0u64;
@@ -177,6 +180,18 @@ impl Store {
         info!("[model] zapisano plik={} MB={:.1}", dest.display(), n as f64 / 1e6);
         Ok(dest)
     }
+
+    /// Brak prawa zapisu (np. model z pakietu Nix w /nix/store) to częsty przypadek po wybraniu głosu spoza pakietu.
+    fn write_error(&self, rel: &str, e: std::io::Error) -> Error {
+        if e.kind() != std::io::ErrorKind::PermissionDenied && e.kind() != std::io::ErrorKind::ReadOnlyFilesystem {
+            return e.into();
+        }
+        Error::Config(format!(
+            "brak pliku modelu {rel}, a katalog {} jest tylko do odczytu ({e}).\nJeśli model pochodzi z pakietu Nix, dodaj \
+             głos do plkokoro.voices w devenv.local.nix; albo ustaw KOKORO_MODEL_DIR / Config::model_dir na katalog z prawem zapisu",
+            self.root.display()
+        ))
+    }
 }
 
 // --- catalog.json (tylko używane pola) -------------------------------------------------------------
@@ -188,17 +203,62 @@ struct Artifact {
 #[derive(Deserialize)]
 struct Voice {
     id: String,
+    #[serde(rename = "displayName", default)]
+    display_name: String,
+    #[serde(default)]
+    gender: String,
     #[serde(rename = "modelId")]
     model_id: String,
     artifact: Artifact,
+}
+/// Frontend tekstowy języka: `status = "bundled"` + `language` (kod Phonemis) albo `"external-required"` (ja, zh).
+#[derive(Deserialize, Default)]
+struct TextFrontend {
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    language: String,
 }
 #[derive(Deserialize)]
 struct Language {
     id: String,
     #[serde(rename = "defaultVoiceId", default)]
     default_voice_id: String,
+    #[serde(rename = "textFrontend", default)]
+    text_frontend: Option<TextFrontend>,
     #[serde(default)]
     voices: Vec<Voice>,
+}
+
+impl Language {
+    /// Kod języka dla Phonemis; `None`, gdy katalog wymaga zewnętrznego frontendu (ja, zh). Bez `textFrontend`
+    /// przyjmujemy id języka (stare i testowe katalogi).
+    fn g2p_lang(&self) -> Option<String> {
+        match &self.text_frontend {
+            None => Some(self.id.clone()),
+            Some(t) if t.status == "external-required" => None,
+            Some(t) if !t.language.is_empty() => Some(t.language.clone()),
+            Some(_) => Some(self.id.clone()),
+        }
+    }
+}
+
+/// Głos z `catalog.json` (patrz `list_voices`).
+#[derive(Clone, Debug)]
+pub struct VoiceInfo {
+    /// Język mówcy (id z katalogu, np. `pl`, `en-us`).
+    pub lang: String,
+    /// Id głosu (np. `pm_mateusz`) — wartość dla `Config::voice`.
+    pub id: String,
+    pub display_name: String,
+    /// `female` / `male` (jak w katalogu; może być puste).
+    pub gender: String,
+    /// Model ONNX, którego wymaga głos.
+    pub model_id: String,
+    /// Czy to domyślny głos języka.
+    pub is_default: bool,
+    /// Język Phonemis dla tego języka mówcy; `None` = brak frontendu (podaj IPA albo własny `Config::g2p`).
+    pub g2p_lang: Option<String>,
 }
 #[derive(Deserialize)]
 struct ModelEntry {
@@ -230,8 +290,11 @@ pub(crate) struct Catalog {
     tokenizers: Vec<Tokenizer>,
 }
 
-/// Ścieżki względne artefaktów polskiego głosu.
+/// Wybrany język i głos oraz ścieżki względne ich artefaktów.
 pub(crate) struct Resolved {
+    pub lang: String,
+    pub voice_id: String,
+    pub g2p_lang: Option<String>,
     pub voice: String,
     pub model: String,
     pub tokenizer: String,
@@ -239,15 +302,29 @@ pub(crate) struct Resolved {
 }
 
 impl Catalog {
-    pub(crate) fn resolve_polish(&self) -> Result<Resolved> {
+    /// Język mówcy `lang` i głos `voice` (domyślnie `defaultVoiceId` języka albo pierwszy głos).
+    pub(crate) fn resolve(&self, lang: &str, voice: Option<&str>) -> Result<Resolved> {
         let bad = |what: String| Error::Config(format!("catalog.json ({REVISION}): {what}"));
-        let lang = self.languages.iter().find(|l| l.id == LANG_ID).ok_or_else(|| bad(format!("nie znaleziono języka {LANG_ID:?}")))?;
-        let voice = lang
-            .voices
-            .iter()
-            .find(|v| v.id == lang.default_voice_id)
-            .or(lang.voices.first())
-            .ok_or_else(|| bad(format!("język {LANG_ID:?} nie ma głosów")))?;
+        let lang = self.languages.iter().find(|l| l.id == lang).ok_or_else(|| {
+            let ids: Vec<&str> = self.languages.iter().map(|l| l.id.as_str()).collect();
+            bad(format!("nie znaleziono języka {lang:?}; dostępne: {}", ids.join(", ")))
+        })?;
+        let voice = match voice {
+            Some(want) => lang.voices.iter().find(|v| v.id == want).ok_or_else(|| {
+                let ids: Vec<&str> = lang.voices.iter().map(|v| v.id.as_str()).collect();
+                let hint = match self.languages.iter().find(|l| l.voices.iter().any(|v| v.id == want)) {
+                    Some(other) => format!(" (głos {want:?} należy do języka {:?} — ustaw Config::lang / --lang)", other.id),
+                    None => String::new(),
+                };
+                bad(format!("język {:?} nie ma głosu {want:?}{hint}; dostępne: {}", lang.id, ids.join(", ")))
+            })?,
+            None => lang
+                .voices
+                .iter()
+                .find(|v| v.id == lang.default_voice_id)
+                .or(lang.voices.first())
+                .ok_or_else(|| bad(format!("język {:?} nie ma głosów", lang.id)))?,
+        };
         let model = self
             .models
             .iter()
@@ -259,11 +336,34 @@ impl Catalog {
             .find(|t| t.id == model.tokenizer_id)
             .ok_or_else(|| bad(format!("nie znaleziono tokenizera {:?}", model.tokenizer_id)))?;
         Ok(Resolved {
+            lang: lang.id.clone(),
+            voice_id: voice.id.clone(),
+            g2p_lang: lang.g2p_lang(),
             voice: voice.artifact.path.clone(),
             model: model.artifact.path.clone(),
             tokenizer: tok.artifact.path.clone(),
             vocab_field: self.runtime.token_encoding.vocabulary_field.clone(),
         })
+    }
+
+    /// Wszystkie głosy katalogu, w kolejności języków i głosów z pliku.
+    pub(crate) fn voices(&self) -> Vec<VoiceInfo> {
+        let mut out = Vec::new();
+        for l in &self.languages {
+            let g2p_lang = l.g2p_lang();
+            for v in &l.voices {
+                out.push(VoiceInfo {
+                    lang: l.id.clone(),
+                    id: v.id.clone(),
+                    display_name: v.display_name.clone(),
+                    gender: v.gender.clone(),
+                    model_id: v.model_id.clone(),
+                    is_default: v.id == l.default_voice_id,
+                    g2p_lang: g2p_lang.clone(),
+                });
+            }
+        }
+        out
     }
 }
 

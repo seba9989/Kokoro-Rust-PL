@@ -223,3 +223,36 @@ fn sigint_cancels_running_phonemization() {
     assert!(err.contains("anulowano"), "{err}");
     assert!(start.elapsed() < Duration::from_secs(3), "zbyt wolne przerwanie: {:?}", start.elapsed());
 }
+
+#[test]
+fn list_voices_and_language_selection() {
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("m");
+    let env = [("HF_ENDPOINT", hf.url.as_str())];
+
+    let r = cli(&["--list-voices", "--model-dir", s(&dir)], &env);
+    assert_eq!(r.code, 0, "{}", r.stderr);
+    let row = |id: &str| r.stdout.lines().find(|l| l.split_whitespace().nth(1) == Some(id)).unwrap_or_default().to_string();
+    assert!(row("v2*").starts_with("pl ") && row("v2*").ends_with(" pl"), "{}", r.stdout);
+    assert!(row("pf_a*").ends_with(" pt"), "{}", r.stdout);
+    assert!(row("jf_a*").contains("--ipa"), "{}", r.stdout);
+    assert!(!row("dm_b").is_empty(), "{}", r.stdout);
+
+    // --lang/--voice/--phonemis-lang trafiają do runnera (ARGS = fałszywy runner zwraca swoje argumenty)
+    let (runner, _) = fake_runner(tmp.path());
+    fake_weights(tmp.path(), "de");
+    let base = ["--phonemize-only", "--model-dir", s(&dir), "--runner", s(&runner)];
+    let r = cli(&[&base[..], &["--lang", "de", "--voice", "dm_b", "ARGS"]].concat(), &env);
+    assert_eq!(r.code, 0, "{}", r.stderr);
+    assert!(r.stdout.trim().starts_with("--lang de --model"), "{}", r.stdout);
+    let r = cli(&[&base[..], &["--lang", "de", "--phonemis-lang", "pl", "ARGS"]].concat(), &env);
+    assert!(r.stdout.trim().starts_with("--lang pl --model"), "{} {}", r.stdout, r.stderr);
+    // zmienne środowiskowe działają jak flagi
+    let r = cli(&[&base[..], &["ARGS"]].concat(), &[env[0], ("KOKORO_LANG", "de")]);
+    assert!(r.stdout.trim().starts_with("--lang de"), "{} {}", r.stdout, r.stderr);
+
+    let r = cli(&[&base[..], &["--lang", "de", "--voice", "nope", "x"]].concat(), &env);
+    assert_eq!(r.code, 1);
+    assert!(r.stderr.contains("nie ma głosu \"nope\""), "{}", r.stderr);
+}

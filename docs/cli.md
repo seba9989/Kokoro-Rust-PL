@@ -23,12 +23,16 @@ reszta to `--długie`. (W wersji Go działało też `-speed`; tu nie.) Kilka sł
 | `--no-normalize` | wył. | wyłącz normalizację uzupełniającą (zł, %, skróty…) |
 | `--ipa` | wył. | wejście to gotowe IPA — pomiń `text_to_ipa` |
 | `--phonemize-only` | wył. | wypisz IPA na stdout i zakończ (bez ładowania Kokoro; włącza logi debug) |
-| `--fetch-only` | wył. | pobierz model Kokoro do `--model-dir`, wypisz ścieżki i zakończ |
+| `--fetch-only` | wył. | pobierz model Kokoro (wybrany język i głos) do `--model-dir`, wypisz ścieżki i zakończ |
+| `--list-voices` | wył. | wypisz głosy z `catalog.json` (język, id, nazwa, płeć, model, język fonemizera; `*` = domyślny) i zakończ |
+| `--lang KOD` | `KOKORO_LANG`, potem `pl` | język mówcy (`pl`, `de`, `en-us`, `pt-br`…) — wyznacza głos, model i tokenizer |
+| `--voice ID` | `KOKORO_VOICE`, potem domyślny głos języka | głos w języku mówcy (`--list-voices`) |
+| `--phonemis-lang KOD` | `PHONEMIS_LANG`, potem frontend języka mówcy | język fonemizera (`pl`, `en-us`, `en-gb`, `de`, `fr`, `es`, `it`, `pt`, `hi`) |
 | `--model-dir DIR` | `KOKORO_MODEL_DIR` | lokalna kopia modelu Kokoro |
 | `--offline` | wył. | nigdy nie łącz się z HF (`KOKORO_OFFLINE=1` też) |
 | `--providers A,B` | CPU | providery ORT po przecinku; wymaga budowy z odpowiednią cechą (`--features migraphx` itd.) |
 | `--runner PLIK` | `PHONEMIS_RUNNER` | ścieżka do `phonemis_runner` |
-| `--model PLIK` | `PHONEMIS_MODEL` lub wyprowadzone z runnera | wagi Phonemis (`phonemizer_pl.bin`) |
+| `--model PLIK` | `PHONEMIS_MODEL` lub wyprowadzone z runnera (`data/<język>/phonemizer_<język>.bin`) | wagi Phonemis dla języka fonemizera |
 | `--ort-lib PLIK` | `ORT_LIBRARY_PATH` | `libonnxruntime.so` (≥ 1.21) |
 | `-v`, `--verbose` | wył. | pokaż normalizację i IPA każdego zdania |
 | `-h`, `--help` | — | pomoc (kod 0) |
@@ -73,6 +77,13 @@ plkokoro --ipa -f tekst.ipa -o tekst.wav
 # długi tekst z pliku, wolniej
 plkokoro -f rozdzial.txt --speed 0.9 -o rozdzial.wav
 
+# inne języki i głosy (w devenv muszą być w plkokoro.voices / plkokoro.phonemisLanguages)
+plkokoro --list-voices
+plkokoro --lang de "Guten Tag. Über alles." -o de.wav                  # głos domyślny df_anna, fonemizer de
+plkokoro --lang en-us --voice af_heart "Hello there." -o en.wav
+plkokoro --lang en-us --voice af_heart --phonemis-lang pl "Dzień dobry." -o akcent.wav
+plkokoro --lang ja --voice jf_alpha --ipa "koɲɲiʨiβa" -o ja.wav         # ja/zh: tylko gotowe IPA
+
 # pobranie modelu raz, potem praca offline
 plkokoro --fetch-only
 plkokoro --offline "Działa bez sieci." -o offline.wav
@@ -82,9 +93,13 @@ plkokoro --offline "Działa bez sieci." -o offline.wav
 
 | Komunikat | Przyczyna i naprawa |
 |---|---|
-| `nie podano Phonemis: ustaw Config::phonemis_runner (albo PHONEMIS_RUNNER)…` | brak `--runner` i zmiennej; w devenv: `pk-phonemis-build` |
-| `… to wskaźnik Git LFS, a nie wagi modelu` | wagi nie pobrane: `pk-phonemis-build` albo `git lfs pull --include='data/pl/*'` |
-| `brak wag Phonemis: …/data/pl/phonemizer_pl.bin` | runner zainstalowany bez wag (`--no-lfs`) albo inny układ katalogów; podaj `--model` |
+| `nie podano Phonemis: ustaw Config::phonemis_runner (albo PHONEMIS_RUNNER)…` | brak `--runner` i zmiennej; w devenv ustawia ją pakiet Nix |
+| `… to wskaźnik Git LFS, a nie wagi modelu` | wagi nie pobrane: `git lfs pull --include='data/<język>/*'` w repo Phonemis |
+| `brak wag Phonemis: …/data/<język>/phonemizer_<język>.bin` | brak wag języka fonemizera: w devenv dodaj język do `plkokoro.phonemisLanguages`; poza devenv podaj `--model` |
+| `Phonemis nie obsługuje języka "…"` | `--phonemis-lang` spoza listy; dla ja/zh użyj `--ipa` |
+| `nie znaleziono języka "…"` / `język "…" nie ma głosu "…"` | zły `--lang` / `--voice`; lista: `--list-voices` |
+| `brak pliku modelu …, a katalog … jest tylko do odczytu` | głos spoza pakietu Nix: dodaj go do `plkokoro.voices` w `devenv.local.nix` albo wskaż `--model-dir` z prawem zapisu |
+| `język mówcy "ja" nie ma frontendu tekstowego w Phonemis` | ja/zh: podaj IPA (`--ipa`) albo `--phonemis-lang` |
 | `inicjalizacja ONNX Runtime (biblioteka "…")` | brak `libonnxruntime.so`: ustaw `--ort-lib` / `ORT_LIBRARY_PATH` (≥ 1.21) |
 | `brak lokalnego pliku modelu: …` | tryb offline bez pobranego modelu: uruchom `--fetch-only` z siecią |
 | `provider "…" nie jest dostępny: nieznany albo niewłączony w tej kompilacji` | zbuduj CLI z cechą providera (`--features …`); sam provider musi też być w załadowanej bibliotece ORT |

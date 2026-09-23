@@ -1,0 +1,2434 @@
+{
+  "$schema": "schema/kokoro-catalog.schema.json",
+  "schemaVersion": 2,
+  "catalogVersion": "2.1.1",
+  "distribution": {
+    "provider": "huggingface",
+    "repository": "Shusek00/kokoro-kmp-models",
+    "artifactResolution": "relative-to-catalog",
+    "recommendedRevision": "v2.1.1",
+    "downloadStrategy": "selected-voice-only"
+  },
+  "license": "Apache-2.0",
+  "modelFamily": "kokoro-82m",
+  "provenance": {
+    "path": "sources/upstream-assets.json",
+    "mediaType": "application/json",
+    "sizeBytes": 102941,
+    "sha256": "3f6df7a5819dbb96b6ab740cdd6f4ba2501ccdee1e633cdd050ef0b4912c009e"
+  },
+  "audio": {
+    "sampleRateHz": 24000,
+    "channels": 1,
+    "sampleType": "float32"
+  },
+  "runtime": {
+    "engine": "onnxruntime",
+    "opset": 17,
+    "batchSize": 1,
+    "maxPhonemeCodePoints": 510,
+    "durationToSamplesFactor": 600,
+    "inputs": [
+      {
+        "name": "input_ids",
+        "type": "int64",
+        "shape": [
+          1,
+          "sequence_length"
+        ]
+      },
+      {
+        "name": "style",
+        "type": "float32",
+        "shape": [
+          1,
+          256
+        ]
+      },
+      {
+        "name": "speed",
+        "type": "float32",
+        "shape": [
+          1
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "waveform",
+        "type": "float32",
+        "shape": [
+          "num_samples"
+        ]
+      },
+      {
+        "name": "duration",
+        "type": "int64",
+        "shape": [
+          "sequence_length"
+        ]
+      }
+    ],
+    "tokenEncoding": {
+      "bosTokenId": 0,
+      "eosTokenId": 0,
+      "vocabularyField": "vocab"
+    },
+    "voiceStyle": {
+      "format": "raw-float32-le",
+      "shape": [
+        510,
+        256
+      ],
+      "rowSelection": "phoneme_code_point_count_minus_one"
+    }
+  },
+  "tokenizers": [
+    {
+      "id": "kokoro-v1.0",
+      "artifact": {
+        "path": "runtime/kokoro-v1.0-config.json",
+        "mediaType": "application/json",
+        "sizeBytes": 2351,
+        "sha256": "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f"
+      }
+    },
+    {
+      "id": "kokoro-v1.1-zh",
+      "artifact": {
+        "path": "runtime/kokoro-v1.1-zh-config.json",
+        "mediaType": "application/json",
+        "sizeBytes": 3228,
+        "sha256": "bc333efa5ce4ceff433c8c8e5d027a1eca0166001e4e4a62bea2d26ff7a46890"
+      }
+    }
+  ],
+  "models": [
+    {
+      "id": "kokoro-v1.0-fp32",
+      "format": "onnx",
+      "precision": "fp32",
+      "tokenizerId": "kokoro-v1.0",
+      "source": {
+        "repository": "hexgrad/Kokoro-82M",
+        "revision": "f3ff3571791e39611d31c381e3a41a3af07b4987",
+        "checkpoint": "kokoro-v1_0.pth",
+        "license": "Apache-2.0"
+      },
+      "artifact": {
+        "path": "models/standard/kokoro-v1.0-fp32.onnx",
+        "mediaType": "application/onnx",
+        "sizeBytes": 325563752,
+        "sha256": "6bebb642a6c246f9a0f242d7aa2a1cca282c278b2d6095cd77e989103b95cfcd"
+      },
+      "validation": {
+        "path": "models/standard/kokoro-v1.0-fp32.validation.json",
+        "mediaType": "application/json",
+        "sizeBytes": 955,
+        "sha256": "8d56426a9f7a1133fd5b6fc4b9b02d91cadc6611630f89e39b61afd8d9f0fb73"
+      }
+    },
+    {
+      "id": "kokoro-v1.1-zh-fp32",
+      "format": "onnx",
+      "precision": "fp32",
+      "tokenizerId": "kokoro-v1.1-zh",
+      "source": {
+        "repository": "hexgrad/Kokoro-82M-v1.1-zh",
+        "revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218",
+        "checkpoint": "kokoro-v1_1-zh.pth",
+        "license": "Apache-2.0"
+      },
+      "artifact": {
+        "path": "models/zh/kokoro-v1.1-zh-fp32.onnx",
+        "mediaType": "application/onnx",
+        "sizeBytes": 325563756,
+        "sha256": "5360ecd69226296069f93ed56026fc479f479cb214b67a5170ea7182bd103bd5"
+      },
+      "validation": {
+        "path": "models/zh/kokoro-v1.1-zh-fp32.validation.json",
+        "mediaType": "application/json",
+        "sizeBytes": 970,
+        "sha256": "c25d455e1f8d3775e0de4c5cbbcc2fe244278920d68c944f7d65ec61c4dae3e1"
+      }
+    },
+    {
+      "id": "kokoro-pl-fp32",
+      "format": "onnx",
+      "precision": "fp32",
+      "tokenizerId": "kokoro-v1.0",
+      "source": {
+        "repository": "software-mansion/react-native-executorch-kokoro",
+        "revision": "3744b57964eab7df6e8c48f0b84badb29e14df07",
+        "checkpoint": "finetunes/kokoro_polish_converted.pth",
+        "license": "Apache-2.0"
+      },
+      "artifact": {
+        "path": "models/pl/kokoro-pl-fp32.onnx",
+        "mediaType": "application/onnx",
+        "sizeBytes": 325563788,
+        "sha256": "4934c2ec0ce5e1666aa72e75da235481d6ec0691cdb1fb03e5bfaad54e775b81"
+      },
+      "validation": {
+        "path": "models/pl/kokoro-pl-fp32.validation.json",
+        "mediaType": "application/json",
+        "sizeBytes": 1014,
+        "sha256": "3a36999000b5d8c991de6f590d69c2b4e2d41357f607db142000a2ccd43c33b8"
+      }
+    },
+    {
+      "id": "kokoro-de-fp32",
+      "format": "onnx",
+      "precision": "fp32",
+      "tokenizerId": "kokoro-v1.0",
+      "source": {
+        "repository": "software-mansion/react-native-executorch-kokoro",
+        "revision": "3744b57964eab7df6e8c48f0b84badb29e14df07",
+        "checkpoint": "finetunes/kokoro_german_converted.pth",
+        "license": "Apache-2.0"
+      },
+      "artifact": {
+        "path": "models/de/kokoro-de-fp32.onnx",
+        "mediaType": "application/onnx",
+        "sizeBytes": 325563788,
+        "sha256": "1a700ee00b42f373222741976f7ca1db1ecf66c1b23bd76b9fa1f0c6a2485e24"
+      },
+      "validation": {
+        "path": "models/de/kokoro-de-fp32.validation.json",
+        "mediaType": "application/json",
+        "sizeBytes": 956,
+        "sha256": "b313f93eabf3a307ae89567234db1c7be67a7561e873ee15200603cd1d72f776"
+      }
+    }
+  ],
+  "languages": [
+    {
+      "id": "en-us",
+      "locale": "en-US",
+      "displayName": "English (United States)",
+      "nativeName": "English (United States)",
+      "defaultVoiceId": "af_heart",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "en-us",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/en-us/phonemizer_en_us.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "479cd9d89819a60c4f8609dbb116ae5b362d46c0c592b97605968cbaef1e7bc6"
+            }
+          },
+          {
+            "role": "lexicon",
+            "artifact": {
+              "path": "phonemizers/en-us/lexicon_full.json",
+              "mediaType": "application/json",
+              "sizeBytes": 6254347,
+              "sha256": "ef0b19a0126455e4216fb08083c8b50f7e85f98f6055738129a89d2095e635d7"
+            }
+          },
+          {
+            "role": "tagger",
+            "artifact": {
+              "path": "phonemizers/en-us/tagger.json",
+              "mediaType": "application/json",
+              "sizeBytes": 1634732,
+              "sha256": "af2fe9831e8560fa78ebf7d96da715ce5ecb43a3363bd701c952a6db206f169c"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "af_alloy",
+          "displayName": "Alloy",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_alloy.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c4a6b876047fd7fb472edf4ebd63cfac7c3b958a7cae7c106e8f038ca6308c45"
+          }
+        },
+        {
+          "id": "af_aoede",
+          "displayName": "Aoede",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_aoede.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4a004c33430762e2461eedb2013fad808ef4ab3121f5300f554476caf58d8361"
+          }
+        },
+        {
+          "id": "af_bella",
+          "displayName": "Bella",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_bella.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b"
+          }
+        },
+        {
+          "id": "af_heart",
+          "displayName": "Heart",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_heart.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b"
+          }
+        },
+        {
+          "id": "af_jessica",
+          "displayName": "Jessica",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_jessica.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a240a5e3c15b43563d6e923bdca8ef5613a23471d9b77653694012435df23bd8"
+          }
+        },
+        {
+          "id": "af_kore",
+          "displayName": "Kore",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_kore.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "9be5221b6a941c04b561959b8ff0b06e809444dcc4ab7e75a7b23606f691819e"
+          }
+        },
+        {
+          "id": "af_maple",
+          "displayName": "Maple",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_maple.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "bd5b230b916ea98c67a3a7a833a3ce43e535ce56a81503f4166ee9390b9ddeeb"
+          }
+        },
+        {
+          "id": "af_nicole",
+          "displayName": "Nicole",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_nicole.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "cd2191ab31b914ed7b318416b0e4440fdf392ddad9106a060819aa600a64f59a"
+          }
+        },
+        {
+          "id": "af_nova",
+          "displayName": "Nova",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_nova.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "18778272caa0d0eebaea251c35fd635f038434f9eee5e691d02a174bd328414f"
+          }
+        },
+        {
+          "id": "af_river",
+          "displayName": "River",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_river.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "00a2bcf82b1d86e8f19902ede58c65ccf6c0e43b44b7d74fad54e5d8933c9c30"
+          }
+        },
+        {
+          "id": "af_sarah",
+          "displayName": "Sarah",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_sarah.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4409fbc125afabacc615d94db5398d847006a737b0247d6892b7a9a0007a2f0a"
+          }
+        },
+        {
+          "id": "af_sky",
+          "displayName": "Sky",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_sky.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4435255c9744f3f31659e0d714ab7689bf65d9e77ec1cce060f083912614f0b9"
+          }
+        },
+        {
+          "id": "af_sol",
+          "displayName": "Sol",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/en-us/af_sol.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "87c1d6d6a3f13f89ed54a6a67cc1ff75b926aebc3a2aac3086e6dd109a8147e6"
+          }
+        },
+        {
+          "id": "am_adam",
+          "displayName": "Adam",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_adam.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "162b035ed91cfc48b6046982184c645f72edcdd1b82843347f605d7bf7b15716"
+          }
+        },
+        {
+          "id": "am_echo",
+          "displayName": "Echo",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_echo.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "3968b92c3c4cd1c4416dbded36c13eaa388a90d5788d02a13e4d781f5f8cf3c3"
+          }
+        },
+        {
+          "id": "am_eric",
+          "displayName": "Eric",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_eric.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e8b5be17edd1e3636901ce7598baafe2dc8dd8ff707a0c23bf9e461add7e2832"
+          }
+        },
+        {
+          "id": "am_fenrir",
+          "displayName": "Fenrir",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_fenrir.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c27989f741f7ee34d273a39d8a595cc0837d35f5ced9a29b7cc162614616df43"
+          }
+        },
+        {
+          "id": "am_liam",
+          "displayName": "Liam",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_liam.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "52403be32fd047c6a44517cb0bcd6b134f2a18baa73e70ef41651e0eab921ade"
+          }
+        },
+        {
+          "id": "am_michael",
+          "displayName": "Michael",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_michael.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1"
+          }
+        },
+        {
+          "id": "am_onyx",
+          "displayName": "Onyx",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_onyx.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "da5d135b424164916d75a68ffb4c2abce3d7d5ccc82dd1ee6cf447ce286145e6"
+          }
+        },
+        {
+          "id": "am_puck",
+          "displayName": "Puck",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_puck.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "fcf73c989033e9233e0b98713eca600c8c74dcc1614b37009d5450ff4a2274a0"
+          }
+        },
+        {
+          "id": "am_santa",
+          "displayName": "Santa",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-us/am_santa.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "61150cf726ab6c5ed7a99f90a304f91f5a72c00c592e89ec94e5df11c319227a"
+          }
+        }
+      ]
+    },
+    {
+      "id": "en-gb",
+      "locale": "en-GB",
+      "displayName": "English (United Kingdom)",
+      "nativeName": "English (United Kingdom)",
+      "defaultVoiceId": "bf_emma",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "en-gb",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/en-gb/phonemizer_en_gb.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "065baba624db8391905e53c78706a12c5f4cba12a77e62a90900b2113bdb17e7"
+            }
+          },
+          {
+            "role": "lexicon",
+            "artifact": {
+              "path": "phonemizers/en-gb/lexicon_full.json",
+              "mediaType": "application/json",
+              "sizeBytes": 6664570,
+              "sha256": "52167ca536a93d56a02e8b1db29f572438cb7103737ef2c3f8dd9dbfc0b35e0a"
+            }
+          },
+          {
+            "role": "tagger",
+            "artifact": {
+              "path": "phonemizers/en-gb/tagger.json",
+              "mediaType": "application/json",
+              "sizeBytes": 1634732,
+              "sha256": "af2fe9831e8560fa78ebf7d96da715ce5ecb43a3363bd701c952a6db206f169c"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "bf_alice",
+          "displayName": "Alice",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bf_alice.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "08afa6ba24da61ea5e8efa139e5aadc938d83f0a6da5a900adaf763ac1da5573"
+          }
+        },
+        {
+          "id": "bf_emma",
+          "displayName": "Emma",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bf_emma.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73"
+          }
+        },
+        {
+          "id": "bf_isabella",
+          "displayName": "Isabella",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bf_isabella.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "3754352c4aaa46d17f27654ab7518d65b62ad6163a0f55a5f4330c2da2c4e94f"
+          }
+        },
+        {
+          "id": "bf_lily",
+          "displayName": "Lily",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bf_lily.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "5e0ee32ebe64a467124976b14e69590746f1c4ce41a12b587a50c862edfea335"
+          }
+        },
+        {
+          "id": "bf_vale",
+          "displayName": "Vale",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bf_vale.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2536f7922d31d96e994135ac2bb73f5a3c01326476200513c57d988822c6ca4d"
+          }
+        },
+        {
+          "id": "bm_daniel",
+          "displayName": "Daniel",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bm_daniel.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "6b3194bbceffb746733cbc22c8f593dd44e401a71d53895a2dca891bc595a1e8"
+          }
+        },
+        {
+          "id": "bm_fable",
+          "displayName": "Fable",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bm_fable.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f889083196807b4adb15e9204252165f503b8d33d3982e681c52443c49d798f1"
+          }
+        },
+        {
+          "id": "bm_george",
+          "displayName": "George",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bm_george.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc"
+          }
+        },
+        {
+          "id": "bm_lewis",
+          "displayName": "Lewis",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/en-gb/bm_lewis.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b8f671cef828c30e66fdf0b0756a76bba58f6bb3398cbbf27058642acbcedb97"
+          }
+        }
+      ]
+    },
+    {
+      "id": "es",
+      "locale": "es-ES",
+      "displayName": "Spanish",
+      "nativeName": "español",
+      "defaultVoiceId": "ef_dora",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "es",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/es/phonemizer_es.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "0437232bb50cffdefc51995dc8195c14992b185655e3bc0f0005b97a7f162240"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "ef_dora",
+          "displayName": "Dora",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/es/ef_dora.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f66ec66bd295acb18372e37008533a9a3228483ccd294e7538d5d9294ac9a532"
+          }
+        },
+        {
+          "id": "em_alex",
+          "displayName": "Alex",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/es/em_alex.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "27809e9eafdcbcfff90a3016c697568676531de2a2c39cee29c96c7bd6b83e95"
+          }
+        },
+        {
+          "id": "em_santa",
+          "displayName": "Santa",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/es/em_santa.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ad43b774e1ca24d05c6161297d8aeb770ac3d29bb95daf516727af5f7d543683"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fr",
+      "locale": "fr-FR",
+      "displayName": "French",
+      "nativeName": "français",
+      "defaultVoiceId": "ff_siwis",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "fr",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/fr/phonemizer_fr.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "d0ca22d75569827f86d73bd8f071a128e478d4f6f107e94035236ba080658485"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "ff_siwis",
+          "displayName": "Siwis",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/fr/ff_siwis.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a35f5675ad08948e326ae75fd0ea16ba5d0042e4f76b5f3d1df77d0a48c54861"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hi",
+      "locale": "hi-IN",
+      "displayName": "Hindi",
+      "nativeName": "हिन्दी",
+      "defaultVoiceId": "hf_alpha",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "hi",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/hi/phonemizer_hi.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 9205753,
+              "sha256": "7e046cd695d2615bad723b24e7fbe0339594526f6953df4c5d20aa53862a9678"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "hf_alpha",
+          "displayName": "Alpha",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/hi/hf_alpha.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "040be6a4425411cc01fda5fd06693c76bfa78572632852bc8cda9c99232ffb56"
+          }
+        },
+        {
+          "id": "hf_beta",
+          "displayName": "Beta",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/hi/hf_beta.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "cd83ae0bb9b2e4e4fb92b4973bd8d1822ca0036d3c498bf4fc89aa8e33917cc7"
+          }
+        },
+        {
+          "id": "hm_omega",
+          "displayName": "Omega",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/hi/hm_omega.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b02d9222d9ed00ce26b302173a862c2c93f96cc40b5c422b8d14910b9ff34137"
+          }
+        },
+        {
+          "id": "hm_psi",
+          "displayName": "Psi",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/hi/hm_psi.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "644daf88ba8aeb7bd08950bbdcd4453bb280864e49dc4df93fabc6be32e03f37"
+          }
+        }
+      ]
+    },
+    {
+      "id": "it",
+      "locale": "it-IT",
+      "displayName": "Italian",
+      "nativeName": "italiano",
+      "defaultVoiceId": "if_sara",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "it",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/it/phonemizer_it.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "30c115355c28c1c8657eba91a1557d89b9bb69b373202399546719cf2991f9f8"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "if_sara",
+          "displayName": "Sara",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/it/if_sara.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "409b69248798fcdc2542330c76953d230710f19b057e59cb82fdc3c4cf71265c"
+          }
+        },
+        {
+          "id": "im_nicola",
+          "displayName": "Nicola",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/it/im_nicola.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "bc578e510d52a96d6940d46f12e96d7b3df00905dbea075113226d100e6e1ab0"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ja",
+      "locale": "ja-JP",
+      "displayName": "Japanese",
+      "nativeName": "日本語",
+      "defaultVoiceId": "jf_alpha",
+      "textFrontend": {
+        "status": "external-required",
+        "recommendedEngine": "misaki[ja]",
+        "language": "ja",
+        "phonemeInputSupported": true,
+        "note": "The model and voices are bundled; a portable Japanese text frontend is not yet bundled for Kotlin Multiplatform."
+      },
+      "voices": [
+        {
+          "id": "jf_alpha",
+          "displayName": "Alpha",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/ja/jf_alpha.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "56b479360aad9f367aeb8cef908f9201cf48b4555e488c5f4590c9dfcd978bb6"
+          }
+        },
+        {
+          "id": "jf_gongitsune",
+          "displayName": "Gongitsune",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/ja/jf_gongitsune.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "0f1181f3772d27b7c12aaf4bcd71e31b186c4146e330d074a3dc64ee392af396"
+          }
+        },
+        {
+          "id": "jf_nezumi",
+          "displayName": "Nezumi",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/ja/jf_nezumi.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "13cb71eebb0b48739d444558322aa35a8c9a489b80e1e631f14d2e6aea93026b"
+          }
+        },
+        {
+          "id": "jf_tebukuro",
+          "displayName": "Tebukuro",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/ja/jf_tebukuro.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "29c6c0561b4288d59639677bebe7533c919743d5ea68d0d2ae992644beea6696"
+          }
+        },
+        {
+          "id": "jm_kumo",
+          "displayName": "Kumo",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/ja/jm_kumo.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "09e959d239724c734d65661f06f14cdabcddfd476bfaaad905a937099ae9e64f"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pt-br",
+      "locale": "pt-BR",
+      "displayName": "Portuguese (Brazil)",
+      "nativeName": "português (Brasil)",
+      "defaultVoiceId": "pf_dora",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "pt",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/pt-br/phonemizer_pt.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "fb30ed5fbdf2465b5f3d8a08903d2cc50dfa77b4c4c24518ac0ba26640393f52"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "pf_dora",
+          "displayName": "Dora",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/pt-br/pf_dora.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "3da7b5b2d91847ebf5646f57631af6ececae3c29a89cd300f06edf9aa6cfe9ee"
+          }
+        },
+        {
+          "id": "pm_alex",
+          "displayName": "Alex",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/pt-br/pm_alex.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "0175c753f59c54e7fd5a995bedef0c5ff2fb67e0043dd3dcb2ae74ec2acbeb2a"
+          }
+        },
+        {
+          "id": "pm_santa",
+          "displayName": "Santa",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/pt-br/pm_santa.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "8b012db3185778afe2e45a62cbad69db73021774fe68dda634bcc748a982eede"
+          }
+        }
+      ]
+    },
+    {
+      "id": "zh",
+      "locale": "zh-CN",
+      "displayName": "Mandarin Chinese",
+      "nativeName": "普通话",
+      "defaultVoiceId": "zf_001",
+      "textFrontend": {
+        "status": "external-required",
+        "recommendedEngine": "misaki[zh]",
+        "language": "zh",
+        "phonemeInputSupported": true,
+        "note": "Both Kokoro model variants and all Mandarin voices are bundled; a portable Mandarin text frontend is not yet bundled for Kotlin Multiplatform."
+      },
+      "voices": [
+        {
+          "id": "zf_001",
+          "displayName": "Chinese Female 001",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_001.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "0a89ec12bb93fb9c74077924daf02568baad64e1f869389f5aaee01a386035f8"
+          }
+        },
+        {
+          "id": "zf_002",
+          "displayName": "Chinese Female 002",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_002.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "452f96e1e3c20b14b228b5336a8d7e833b105f837d98ef53b4ddfce18eed39bf"
+          }
+        },
+        {
+          "id": "zf_003",
+          "displayName": "Chinese Female 003",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_003.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a70654663d013a700f8afe42d57d1ce03ff49af8bdedbbb56c7e3da6e820b788"
+          }
+        },
+        {
+          "id": "zf_004",
+          "displayName": "Chinese Female 004",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_004.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "81fe28be1c496ccffa73078d5c2e6d9cc5e5f91e354d6ae0f494a9c28a42064d"
+          }
+        },
+        {
+          "id": "zf_005",
+          "displayName": "Chinese Female 005",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_005.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a91d2c2adecbb7c191dac4fa35e213e8d370e0c733a9bf36797f513924dcb84c"
+          }
+        },
+        {
+          "id": "zf_006",
+          "displayName": "Chinese Female 006",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_006.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "52dee405a0e609d6d2869eef05984745db435a73aea49db7418494d5cb53bf9d"
+          }
+        },
+        {
+          "id": "zf_007",
+          "displayName": "Chinese Female 007",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_007.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "23b6c4312208de7f195e4e78eef0ec9e498cd52907b1678ecb7a0a1996a51573"
+          }
+        },
+        {
+          "id": "zf_008",
+          "displayName": "Chinese Female 008",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_008.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "23e20843a71fb8c5f6b984c8d4e74dd590251aeb8f620cb07a57e1485d726b0c"
+          }
+        },
+        {
+          "id": "zf_017",
+          "displayName": "Chinese Female 017",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_017.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "9c6513e77a8efb7172a4e4ebeb48b3b010152d8cd6a0f2fa1adb353248fd91ed"
+          }
+        },
+        {
+          "id": "zf_018",
+          "displayName": "Chinese Female 018",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_018.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a9ee6566c7500ce90cbd177f1d6f6cae533356e5f0e37edf3adbd0a8f2d44020"
+          }
+        },
+        {
+          "id": "zf_019",
+          "displayName": "Chinese Female 019",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_019.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ab5906846335ac1227c47fd04be8b7b10a47c3ee77729296cc4c0f3f8fe79073"
+          }
+        },
+        {
+          "id": "zf_021",
+          "displayName": "Chinese Female 021",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_021.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c16f939c566f786150be3e3cb6a61f7fd8d4214a26a46d3e80e1d61de06d54ec"
+          }
+        },
+        {
+          "id": "zf_022",
+          "displayName": "Chinese Female 022",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_022.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c1cde40b2fd522355d2ae152d06d1033b04ad3528b7273cf25dd68f28a5563db"
+          }
+        },
+        {
+          "id": "zf_023",
+          "displayName": "Chinese Female 023",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_023.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d02846dc3b8a89b4f81634b407ce8dd30d80db40fc952d54f05853a8e26a2190"
+          }
+        },
+        {
+          "id": "zf_024",
+          "displayName": "Chinese Female 024",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_024.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2d0f2df7b25482f6870cfbe8e83c7d1e74ed8ef8ae72df749207ea9cec7c9102"
+          }
+        },
+        {
+          "id": "zf_026",
+          "displayName": "Chinese Female 026",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_026.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2a2434fed129796276c61947fc65bf7dadd569468ea4edaca81f3d59802bdc32"
+          }
+        },
+        {
+          "id": "zf_027",
+          "displayName": "Chinese Female 027",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_027.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "9301e7a0b80eedff7f314076e07f9eb74b687afb7fcb2c64ca94168469858aae"
+          }
+        },
+        {
+          "id": "zf_028",
+          "displayName": "Chinese Female 028",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_028.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "8d15e55ad315708010c1528c633828e3179d5cbf0bfcd2db0fec27f63001eaec"
+          }
+        },
+        {
+          "id": "zf_032",
+          "displayName": "Chinese Female 032",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_032.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2ab0b9b1fe2f1e4cfa08b0126581df3316c12aadeadc51136c826255debd2058"
+          }
+        },
+        {
+          "id": "zf_036",
+          "displayName": "Chinese Female 036",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_036.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b72873066ef9d57d4ea0605d32a82b2655010af51edbaecd6f926250d84efa4e"
+          }
+        },
+        {
+          "id": "zf_038",
+          "displayName": "Chinese Female 038",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_038.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "569bb54ebf05c00c89eaf56218992474a8a0494d8f94a14e933ae6a5ea9f7e31"
+          }
+        },
+        {
+          "id": "zf_039",
+          "displayName": "Chinese Female 039",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_039.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "92ad68f36d16860dcf125fdf87a4572c7ab6d7efbe6a7197d6772242a2cbbb56"
+          }
+        },
+        {
+          "id": "zf_040",
+          "displayName": "Chinese Female 040",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_040.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "bae25bd2c4dd717ce65effa2350b28a55a73f53a0bcc2cca5876a15e984eaa2d"
+          }
+        },
+        {
+          "id": "zf_042",
+          "displayName": "Chinese Female 042",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_042.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "713160091b44d962ab73e3bf66f0c2f0b9677aaf0c2f0e62faa94ed451540d1e"
+          }
+        },
+        {
+          "id": "zf_043",
+          "displayName": "Chinese Female 043",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_043.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7d257954b651436e354712738b22e8365ed908923a5d0f154690188b2c73ea78"
+          }
+        },
+        {
+          "id": "zf_044",
+          "displayName": "Chinese Female 044",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_044.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e166c8b2a680d3f51f1765cedc4ed7a29308ea40081b03347d5cd95f52119cc0"
+          }
+        },
+        {
+          "id": "zf_046",
+          "displayName": "Chinese Female 046",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_046.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "73e8881e76670cfe803c8ab0ccc6b5daae22efdc3a67f8e0e80658a4be21d3af"
+          }
+        },
+        {
+          "id": "zf_047",
+          "displayName": "Chinese Female 047",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_047.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "620f92a680c5a28bd8eb601738721047b73008bdf5b880f34075181afbfdcb62"
+          }
+        },
+        {
+          "id": "zf_048",
+          "displayName": "Chinese Female 048",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_048.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "24e0aa66d1cb264e86adac5ea143f7fb0a9672a8b237ba1ad017aacc1fb0290a"
+          }
+        },
+        {
+          "id": "zf_049",
+          "displayName": "Chinese Female 049",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_049.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4808ba6dfc1c13af9921bb5072faf875b69bc54777281eb549592b1aa7e8a4bc"
+          }
+        },
+        {
+          "id": "zf_051",
+          "displayName": "Chinese Female 051",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_051.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "64df55d707d3c28dec15c5c9051653b6a6cbbbf85c52e56183d3922e53415e76"
+          }
+        },
+        {
+          "id": "zf_059",
+          "displayName": "Chinese Female 059",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_059.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f12fd6e34f602445173f930c4f41b4d064e1a981b39b664591ad2476fb7425cc"
+          }
+        },
+        {
+          "id": "zf_060",
+          "displayName": "Chinese Female 060",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_060.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "429ad8ffb6fc8b68d3b77f2ccafba5be50e4ec31d25f890d739a16449ca01748"
+          }
+        },
+        {
+          "id": "zf_067",
+          "displayName": "Chinese Female 067",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_067.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "5669caef309a3746a47588d893d58fa61c721a94ca07e431c732ea9a2b4abc6a"
+          }
+        },
+        {
+          "id": "zf_070",
+          "displayName": "Chinese Female 070",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_070.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f225305611865b09dc8cb36439143c02a404299b00508e00676655bb117342e2"
+          }
+        },
+        {
+          "id": "zf_071",
+          "displayName": "Chinese Female 071",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_071.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "454cd5aaa9458f3b028e973d19902a002eb59fc743eb94fb3c7c9d5d7a190a07"
+          }
+        },
+        {
+          "id": "zf_072",
+          "displayName": "Chinese Female 072",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_072.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2274b572b44723e80eee422a914c96b37ee42bf9b5ca60e7f656bede7860a1d3"
+          }
+        },
+        {
+          "id": "zf_073",
+          "displayName": "Chinese Female 073",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_073.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b8ecf6945ae7bb2a0353422b7af32d3b928c5fdccf3ea553bc61227a57bf4a2c"
+          }
+        },
+        {
+          "id": "zf_074",
+          "displayName": "Chinese Female 074",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_074.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "8e6726977c7494dfd567c580963630834c0971f66111e06c9467e6f7d912ea1e"
+          }
+        },
+        {
+          "id": "zf_075",
+          "displayName": "Chinese Female 075",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_075.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "84e70ca9aac5178ceaeb1eae95dd77278d71e60cfacaf9af99852922b4355560"
+          }
+        },
+        {
+          "id": "zf_076",
+          "displayName": "Chinese Female 076",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_076.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "58351a1be5aa04f874bea0e5228fc0e0047dc2ee801e915d4f59513ca60a3194"
+          }
+        },
+        {
+          "id": "zf_077",
+          "displayName": "Chinese Female 077",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_077.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e2fd07f3b62e204cd6632696e2a975678e7e6aa5a9b2cb4927f94d875c113625"
+          }
+        },
+        {
+          "id": "zf_078",
+          "displayName": "Chinese Female 078",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_078.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "82d591700a9ecb3cb14d3d05ec5aab18bd7a482d677bf6522cf96ed4c064b23b"
+          }
+        },
+        {
+          "id": "zf_079",
+          "displayName": "Chinese Female 079",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_079.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2df9a9fbbd39a54077a2c5073c04c7e685ce0342b34f22fc85c25a1f7a3954c7"
+          }
+        },
+        {
+          "id": "zf_083",
+          "displayName": "Chinese Female 083",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_083.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "5557cbc381e0f2cd2a29759fdda25eca664492f1cfa3fcc241e7adeaf4164661"
+          }
+        },
+        {
+          "id": "zf_084",
+          "displayName": "Chinese Female 084",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_084.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2b2d4fdefa9a6c3d9f472d91600308be8b827a929955ec66afe81aca50c99968"
+          }
+        },
+        {
+          "id": "zf_085",
+          "displayName": "Chinese Female 085",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_085.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2451d63f576c9ffbe91acd11f2720b6e76dc75b293d7350a9620a28c23da9ef8"
+          }
+        },
+        {
+          "id": "zf_086",
+          "displayName": "Chinese Female 086",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_086.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "c228ba018bf56d5de1339bde10dcbea7700797b85351e4d57ee5307ac7d3ee99"
+          }
+        },
+        {
+          "id": "zf_087",
+          "displayName": "Chinese Female 087",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_087.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e0347f1430b80781d910bf1499cf64d231c34b70d6e46f30f3598254d5114d44"
+          }
+        },
+        {
+          "id": "zf_088",
+          "displayName": "Chinese Female 088",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_088.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ee1e80cdeaffb55e1f6c41005c4966b8979b16bb808fa451739e06953d343c13"
+          }
+        },
+        {
+          "id": "zf_090",
+          "displayName": "Chinese Female 090",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_090.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "fe90b3e651c3741edf6bc08a543c531c798ec53fab1fd944ab537e9257270c68"
+          }
+        },
+        {
+          "id": "zf_092",
+          "displayName": "Chinese Female 092",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_092.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ffd200defd2867f79886eb0e45540d53ed0dc00ceb222c5fa692f004958d3e11"
+          }
+        },
+        {
+          "id": "zf_093",
+          "displayName": "Chinese Female 093",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_093.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d736ac1738c5ba567f8e5e9bfac8d9a774e9e3a3d001b5976a5d005c9179f811"
+          }
+        },
+        {
+          "id": "zf_094",
+          "displayName": "Chinese Female 094",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_094.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b37b96e3c51d12f152c9476cae42396ac38cdab76f09cc935f2fbcd8fa012f42"
+          }
+        },
+        {
+          "id": "zf_099",
+          "displayName": "Chinese Female 099",
+          "gender": "female",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_099.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "9582b2ffb5027c695f6775161a8856108fa68530c6c1e29d2354d455d9eaa937"
+          }
+        },
+        {
+          "id": "zf_xiaobei",
+          "displayName": "Xiaobei",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_xiaobei.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "5dde6e1c9c4f12c8b327bc29c0cee361a23b52b952c04636858ba637ec66e640"
+          }
+        },
+        {
+          "id": "zf_xiaoni",
+          "displayName": "Xiaoni",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_xiaoni.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "08892b62a39af0a615cd0581238db7e19e44c578e8fa0bfd0e586e93327d9cba"
+          }
+        },
+        {
+          "id": "zf_xiaoxiao",
+          "displayName": "Xiaoxiao",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_xiaoxiao.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "03adb5d5e3ddd88b047954e974e651cb0a4b524c985057e5d872e962c7be1169"
+          }
+        },
+        {
+          "id": "zf_xiaoyi",
+          "displayName": "Xiaoyi",
+          "gender": "female",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zf_xiaoyi.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "bc1555c5c486099196ac254bae5e0bb543c121952a3092f50b7d8724f1bc36b3"
+          }
+        },
+        {
+          "id": "zm_009",
+          "displayName": "Chinese Male 009",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_009.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7b74d6ed22f201e2fa28758e78ce6197082779f2b80e69ea1bf877908609514a"
+          }
+        },
+        {
+          "id": "zm_010",
+          "displayName": "Chinese Male 010",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_010.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "73b088f7e0dc47adca4d6a642ee68843df90ff56ec2800c29d96609989d6de0a"
+          }
+        },
+        {
+          "id": "zm_011",
+          "displayName": "Chinese Male 011",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_011.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ec4d7d934b9aa47e0e98e6ec802bb7b0a221be6f1b67d923d33b7082d9bbfe9f"
+          }
+        },
+        {
+          "id": "zm_012",
+          "displayName": "Chinese Male 012",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_012.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "50d1986f71ea1a2b3ab1bfc0c95bedc59e8de45e650bc5bde87fd99ceb83cdfb"
+          }
+        },
+        {
+          "id": "zm_013",
+          "displayName": "Chinese Male 013",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_013.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2caa23e98910fb232a2bf6aab563666588a82bc37c99b67963ab304c5be66dff"
+          }
+        },
+        {
+          "id": "zm_014",
+          "displayName": "Chinese Male 014",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_014.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "565aa48a99d8a196ebdd1c72f4a0e5760fed65aa95992c887385d3aad9e1d2f8"
+          }
+        },
+        {
+          "id": "zm_015",
+          "displayName": "Chinese Male 015",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_015.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e695c8d72b3eb4a864f4735db7f4f93de100ff62704e619edfddbebfafb07312"
+          }
+        },
+        {
+          "id": "zm_016",
+          "displayName": "Chinese Male 016",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_016.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4dc408a11f1e8925ff8bca40c885e7596d08be63c2c61571234b96170f8e6d1b"
+          }
+        },
+        {
+          "id": "zm_020",
+          "displayName": "Chinese Male 020",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_020.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "2a25ca83ddfd003c0b82d97899ff38734db8faf48e5e4076d68c69aea17705c8"
+          }
+        },
+        {
+          "id": "zm_025",
+          "displayName": "Chinese Male 025",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_025.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "cbb4cd1df85b5dde4cf742c61d9b93e179574935c1162d06604bc4be6a8e990d"
+          }
+        },
+        {
+          "id": "zm_029",
+          "displayName": "Chinese Male 029",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_029.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ff78cb9f64d43fe6179c9479257775bea94dc31eade9362b0c630749025d8ecd"
+          }
+        },
+        {
+          "id": "zm_030",
+          "displayName": "Chinese Male 030",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_030.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "32f8fe4d5f626dfb67adb73499690fd4f5952763746efbcadcf2daad4a3560a6"
+          }
+        },
+        {
+          "id": "zm_031",
+          "displayName": "Chinese Male 031",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_031.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a5974232ed634be2ae40526101ee7c653120fdb354b1584f2bb38ed4fae4a39e"
+          }
+        },
+        {
+          "id": "zm_033",
+          "displayName": "Chinese Male 033",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_033.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "758e64c15efad492beebf575eb96951e0500da980bf5e8a3850d078d0430dda1"
+          }
+        },
+        {
+          "id": "zm_034",
+          "displayName": "Chinese Male 034",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_034.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "b371bef26b75c826de15c836103da3e037a44f605ffe744d68ad485d17e370ab"
+          }
+        },
+        {
+          "id": "zm_035",
+          "displayName": "Chinese Male 035",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_035.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "8b1c603f6e1eae300ac1a6f1199a5bb1ce9814d3e1e61f7536d21b564d680476"
+          }
+        },
+        {
+          "id": "zm_037",
+          "displayName": "Chinese Male 037",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_037.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "535ec47cb6ed66c203f61ace51eddbc7a13ecaca2458c1d8d5a928fb3db4b315"
+          }
+        },
+        {
+          "id": "zm_041",
+          "displayName": "Chinese Male 041",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_041.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "8b7bd5649a00c62e87a6099eb31d683664bfb0fd55bcd5211da62e95b3b78ffc"
+          }
+        },
+        {
+          "id": "zm_045",
+          "displayName": "Chinese Male 045",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_045.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "68d5e7f3415811a076326178c2d9f5d3aa168cf27deb6ae3f0395ab97ad45225"
+          }
+        },
+        {
+          "id": "zm_050",
+          "displayName": "Chinese Male 050",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_050.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7869f25a5e71ea9b67a1893777e375ac411bdbfb75feff5efe25fad2fc766c8d"
+          }
+        },
+        {
+          "id": "zm_052",
+          "displayName": "Chinese Male 052",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_052.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e775a71cd74c5462d5a6c3f0ff7681f04419053043ad2dcbabaa13d0c6de0b08"
+          }
+        },
+        {
+          "id": "zm_053",
+          "displayName": "Chinese Male 053",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_053.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "a549dcf0456b2ba1515455e0a30d111b00d24e748880e03da1965cd4ff10baf7"
+          }
+        },
+        {
+          "id": "zm_054",
+          "displayName": "Chinese Male 054",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_054.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4f7aeb1627fa1d406bcc1a83e4eeb8b014509dca492dec0ae7dd4d0d1cdbe8b3"
+          }
+        },
+        {
+          "id": "zm_055",
+          "displayName": "Chinese Male 055",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_055.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "3cf77a37899053b5a7c224f51a22371dc37d30667d87e1b481e760ac0f8f0da8"
+          }
+        },
+        {
+          "id": "zm_056",
+          "displayName": "Chinese Male 056",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_056.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d5f48143152f376a940182741589fb1f588387e09f1a9263760981f8702af816"
+          }
+        },
+        {
+          "id": "zm_057",
+          "displayName": "Chinese Male 057",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_057.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "29cb23f82add956f25c7b663db2027d5a50abb7035c7cb15ee608e193a412f51"
+          }
+        },
+        {
+          "id": "zm_058",
+          "displayName": "Chinese Male 058",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_058.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "0cafc2ef83710c4ce55b384107426cfdcb23aabf5699e106ff392f9571b4d4f3"
+          }
+        },
+        {
+          "id": "zm_061",
+          "displayName": "Chinese Male 061",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_061.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d57141bd480e7a4f1a3b5d3365ce53ac04cfe6dd9d0f2d3a052213f80657046d"
+          }
+        },
+        {
+          "id": "zm_062",
+          "displayName": "Chinese Male 062",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_062.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "171d8811bfeb198714b0d3733ed740eb56be0aa3e6d2bd7b127904116a199f93"
+          }
+        },
+        {
+          "id": "zm_063",
+          "displayName": "Chinese Male 063",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_063.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "6fbe326e5852cd9dbac7eb7e9c9989a604e51074d251a8ff8365e050c83b2a6e"
+          }
+        },
+        {
+          "id": "zm_064",
+          "displayName": "Chinese Male 064",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_064.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "6e712d18758f2d8654c97fb274c23b5148dbafc1027ee6539446d4c8aff308cd"
+          }
+        },
+        {
+          "id": "zm_065",
+          "displayName": "Chinese Male 065",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_065.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "77918a32b75bf7902a6cee310cd22fb16de7ecbb9aa438a05039ebec73f9e0e8"
+          }
+        },
+        {
+          "id": "zm_066",
+          "displayName": "Chinese Male 066",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_066.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "fcdd1d4c8b2808c4456418c76ed2321910b3f1b5c2646365af4ee0e8c6c53c4d"
+          }
+        },
+        {
+          "id": "zm_068",
+          "displayName": "Chinese Male 068",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_068.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ae265665e29656ea0d151f3315c649d892ecf053391c3c3bec5f10bf18531a58"
+          }
+        },
+        {
+          "id": "zm_069",
+          "displayName": "Chinese Male 069",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_069.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "54ac2dc25ee5d1dfa72f777ff538faf69033705019a9e15f3138deb79a965774"
+          }
+        },
+        {
+          "id": "zm_080",
+          "displayName": "Chinese Male 080",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_080.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "cbbcae6bfd6c2f3875b2163fffc8851aeae1b8bad2f1006a94ea4e6f9b44ae9e"
+          }
+        },
+        {
+          "id": "zm_081",
+          "displayName": "Chinese Male 081",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_081.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "ffc1341f044c95ad8ef598079df9e3a85d81d093268ae8422848a9b81d386fd2"
+          }
+        },
+        {
+          "id": "zm_082",
+          "displayName": "Chinese Male 082",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_082.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7351d7652d97ec5fcb7632b317d7c4e062fff3cf4ed0246167d3d15e97046c01"
+          }
+        },
+        {
+          "id": "zm_089",
+          "displayName": "Chinese Male 089",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_089.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "f4315ceab376b4082cc9cdd8028d37f9aa7d43ad67ddb85902a247df0913ca89"
+          }
+        },
+        {
+          "id": "zm_091",
+          "displayName": "Chinese Male 091",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_091.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "6ab4a21b702ec57161f48e350de3fa0b0bd1d13a890657398cfa21452d85a9b3"
+          }
+        },
+        {
+          "id": "zm_095",
+          "displayName": "Chinese Male 095",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_095.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "4d4dac7245ea4c4c4740137fca229932055e376aed2b1ad7cd0e3e3859a13b75"
+          }
+        },
+        {
+          "id": "zm_096",
+          "displayName": "Chinese Male 096",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_096.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e6b76d86ca459d8ce87d2a41c812319b11e9563ecf1ba80a4e86a368d6c02fbc"
+          }
+        },
+        {
+          "id": "zm_097",
+          "displayName": "Chinese Male 097",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_097.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "e60ec05738261c2eb13c43f7429ece6b32e0992223b0a6336a9fcdec90fb8da4"
+          }
+        },
+        {
+          "id": "zm_098",
+          "displayName": "Chinese Male 098",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_098.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7dd142334e863af31c7e0d0fbe491b8d54083ff5322441d550fcfc5e4111480d"
+          }
+        },
+        {
+          "id": "zm_100",
+          "displayName": "Chinese Male 100",
+          "gender": "male",
+          "modelId": "kokoro-v1.1-zh-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_100.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "112de52f1aab3b370fd01f4e2e1d8bb37fee2725e77e14b81c802d50687e0e6e"
+          }
+        },
+        {
+          "id": "zm_yunjian",
+          "displayName": "Yunjian",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_yunjian.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "de48a00bdbf3649f07162269a2b6e0513604389bfac8a2e6c75cb34b323ad6fa"
+          }
+        },
+        {
+          "id": "zm_yunxi",
+          "displayName": "Yunxi",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_yunxi.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "7243892fb4e560d47014090ddf010f8b8b790f3c6b029ff82b2ac06aa4e27c8b"
+          }
+        },
+        {
+          "id": "zm_yunxia",
+          "displayName": "Yunxia",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_yunxia.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "6b2b8fc15b3df19a368daebe5c581c7fabf433ee5b8a17ffd6b3d723cff8936d"
+          }
+        },
+        {
+          "id": "zm_yunyang",
+          "displayName": "Yunyang",
+          "gender": "male",
+          "modelId": "kokoro-v1.0-fp32",
+          "artifact": {
+            "path": "voices/zh/zm_yunyang.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "261e2c89470534dbbcb8fd98b8fdc495ec94063d9bb6c8277f7be43cccba3f42"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pl",
+      "locale": "pl-PL",
+      "displayName": "Polish",
+      "nativeName": "polski",
+      "defaultVoiceId": "pm_mateusz",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "pl",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/pl/phonemizer_pl.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "4cdbafd810ed3cad701c24380894115f848cfa39602d731e7a8e085adee62233"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "pm_mateusz",
+          "displayName": "Mateusz",
+          "gender": "male",
+          "modelId": "kokoro-pl-fp32",
+          "artifact": {
+            "path": "voices/pl/pm_mateusz.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "dc8f2919ede945e6962310b5204b912e64689d5698c571822bf75ad704870cb4"
+          }
+        }
+      ]
+    },
+    {
+      "id": "de",
+      "locale": "de-DE",
+      "displayName": "German",
+      "nativeName": "Deutsch",
+      "defaultVoiceId": "df_anna",
+      "textFrontend": {
+        "status": "bundled",
+        "engine": "phonemis-protophone",
+        "language": "de",
+        "license": "MIT",
+        "sourceRevision": "71eb1ce33bd586d38cbac037843b8539d7829c3b",
+        "phonemeInputSupported": true,
+        "artifacts": [
+          {
+            "role": "neural-model",
+            "artifact": {
+              "path": "phonemizers/de/phonemizer_de.onnx",
+              "mediaType": "application/onnx",
+              "sizeBytes": 7105527,
+              "sha256": "aef1d8a6163b426733059f35f406c540ccd08a3f7855eebe6a09ab4908d5dac7"
+            }
+          }
+        ]
+      },
+      "voices": [
+        {
+          "id": "df_anna",
+          "displayName": "Anna",
+          "gender": "female",
+          "modelId": "kokoro-de-fp32",
+          "artifact": {
+            "path": "voices/de/df_anna.bin",
+            "mediaType": "application/octet-stream",
+            "sizeBytes": 522240,
+            "sha256": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b"
+          }
+        }
+      ]
+    }
+  ]
+}

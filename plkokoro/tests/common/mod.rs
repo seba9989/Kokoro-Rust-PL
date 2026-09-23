@@ -59,6 +59,8 @@ pub fn vocab_json() -> String {
     serde_json::json!({ "vocab": m, "other": 1 }).to_string()
 }
 
+/// Katalog testowy: `pl` (domyślny głos `v2`; `v1` wskazuje nieistniejący model `m0`), `de` z dwoma głosami na tym
+/// samym modelu, `pt-br` z frontendem `pt`, `ja` bez frontendu (`external-required`) i pusty `en`.
 pub fn catalog_json(voice_path: &str) -> String {
     serde_json::json!({
         "runtime": {"tokenEncoding": {"vocabularyField": "vocab"}},
@@ -66,8 +68,20 @@ pub fn catalog_json(voice_path: &str) -> String {
             {"id": "en", "defaultVoiceId": "x", "voices": []},
             {"id": "pl", "defaultVoiceId": "v2", "voices": [
                 {"id": "v1", "modelId": "m0", "artifact": {"path": "voices/other.bin"}},
-                {"id": "v2", "modelId": "m1", "artifact": {"path": voice_path}}
-            ]}
+                {"id": "v2", "displayName": "Dwa", "gender": "male", "modelId": "m1", "artifact": {"path": voice_path}}
+            ]},
+            {"id": "de", "defaultVoiceId": "df_a",
+             "textFrontend": {"status": "bundled", "language": "de"},
+             "voices": [
+                {"id": "df_a", "modelId": "m1", "artifact": {"path": "voices/de_a.bin"}},
+                {"id": "dm_b", "gender": "male", "modelId": "m1", "artifact": {"path": "voices/de_b.bin"}}
+            ]},
+            {"id": "pt-br", "defaultVoiceId": "pf_a",
+             "textFrontend": {"status": "bundled", "language": "pt"},
+             "voices": [{"id": "pf_a", "modelId": "m1", "artifact": {"path": "voices/pt_a.bin"}}]},
+            {"id": "ja", "defaultVoiceId": "jf_a",
+             "textFrontend": {"status": "external-required", "language": "ja"},
+             "voices": [{"id": "jf_a", "modelId": "m1", "artifact": {"path": "voices/ja_a.bin"}}]}
         ],
         "models": [{"id": "m1", "tokenizerId": "t1", "artifact": {"path": "onnx/model.onnx"}}],
         "tokenizers": [{"id": "t1", "artifact": {"path": "cfg.json"}}]
@@ -151,6 +165,10 @@ pub fn default_files() -> Vec<(&'static str, Vec<u8>)> {
         ("catalog.json", catalog_json("voices/pl.bin").into_bytes()),
         ("cfg.json", vocab_json().into_bytes()),
         ("voices/pl.bin", style_bytes()),
+        ("voices/de_a.bin", style_bytes()),
+        ("voices/de_b.bin", style_bytes()),
+        ("voices/pt_a.bin", style_bytes()),
+        ("voices/ja_a.bin", style_bytes()),
         ("onnx/model.onnx", read_testdata("tiny_kokoro.onnx")),
     ]
 }
@@ -165,22 +183,30 @@ for ((i=1;i<=$#;i++)); do [ "${!i}" = "--model" ] && { j=$((i+1)); model="${!j}"
 [ -z "$model" ] && { printf '\n\033[1;32mPhonemization Result:\033[0m\n\033[1;36mOutput: \033[0m    .\n'; exit 0; }
 case "$text" in *BOOM*) printf '\033[1;31mError:\033[0m zepsuty model\n' >&2; exit 1;; *HANG*) exec sleep 30;; esac
 case "$text" in *SLOW*) sleep 0.3;; esac
+# ARGS: zwróć wszystkie argumenty poza tekstem (do sprawdzania --lang / --model / --lexicon / --tagger)
+case "$text" in *ARGS*) printf '\n\033[1;36mOutput: \033[0m%s\n' "${*:1:$#-1}"; exit 0;; esac
 printf '\n\033[1;32mPhonemization Result:\033[0m\n\033[1;34mInput:  \033[0m%s\n\033[1;36mOutput: \033[0m%s\n\033[1;33mTime:   \033[0m0.02 ms\n\n' "$text" "$(printf '%s' "$text" | tr 'A-Z' 'a-z')"
 "#;
 
-/// Układ jak po `pk-phonemis-build`: `<tmp>/repo/build/phonemis_runner` + `data/pl/phonemizer_pl.bin`.
+/// Układ jak w pakiecie Nix `nix/phonemis.nix`: `<tmp>/repo/build/phonemis_runner` + `data/pl/phonemizer_pl.bin`.
 /// Zwraca (runner, wagi); katalog zostaje w `dir`.
 pub fn fake_runner(dir: &Path) -> (PathBuf, PathBuf) {
     use std::os::unix::fs::PermissionsExt;
     let root = dir.join("repo");
     let runner = root.join("build").join("phonemis_runner");
-    let weights = root.join("data").join("pl").join("phonemizer_pl.bin");
     std::fs::create_dir_all(runner.parent().unwrap()).unwrap();
-    std::fs::create_dir_all(weights.parent().unwrap()).unwrap();
     std::fs::write(&runner, FAKE_RUNNER).unwrap();
     std::fs::set_permissions(&runner, std::fs::Permissions::from_mode(0o755)).unwrap();
-    std::fs::write(&weights, vec![7u8; 4096]).unwrap();
+    let weights = fake_weights(dir, "pl");
     (runner, weights)
+}
+
+/// Dokłada wagi języka `lang` do repo z `fake_runner` (`data/<lang>/phonemizer_<lang>.bin`) i zwraca ich ścieżkę.
+pub fn fake_weights(dir: &Path, lang: &str) -> PathBuf {
+    let weights = dir.join("repo").join("data").join(lang).join(plkokoro::phonemis_weights_file(lang));
+    std::fs::create_dir_all(weights.parent().unwrap()).unwrap();
+    std::fs::write(&weights, vec![7u8; 4096]).unwrap();
+    weights
 }
 
 /// Konfiguracja z fałszywym HF, runnerem i katalogiem tymczasowym `tmp`.

@@ -1,17 +1,17 @@
 # Pełna procedura testów
 
 Testy są ułożone w poziomy od najtańszego i najbardziej odizolowanego do prawdziwych danych. Idź od góry: porażka
-na niższym poziomie zwykle tłumaczy porażki wyżej. Poziomy 0–3 są automatyczne i nie potrzebują prawdziwych wag
-ani modelu; poziom 4 to jedyne miejsce, gdzie sprawdza się, że **naprawdę działa** (i tego nie da się zautomatyzować
-bez wag Phonemis z Git LFS i modelu z Hugging Face).
+na niższym poziomie zwykle tłumaczy porażki wyżej. Poziomy 0–2 są automatyczne i nie potrzebują prawdziwych wag
+ani modelu; poziom 4 to jedyne miejsce, gdzie sprawdza się, że **naprawdę działa** (prawdziwe wagi i model dostarczają
+pakiety Nix z devenv).
 
 | Poziom | Co | Polecenie | Wymaga | Dowodzi |
 |---|---|---|---|---|
 | 0 | środowisko | `pk-doctor` | devenv | zależności są na miejscu |
 | 1 | logika, bez ORT | `env -u ORT_LIBRARY_PATH cargo test --workspace -- --nocapture` | Rust | tekst, zgodność z Pythonem, G2P, magazyn modelu, WAV, logika modelu na atrapie, CLI bez ORT |
 | 2 | pełny zestaw z ORT | `pk-test` | ORT ≥ 1.21 | + inferencja na prawdziwej sesji ORT, cykl życia, współbieżność, CLI end-to-end |
-| 3 | skrypt budujący Phonemis | `pk-test-phonemis --src DIR [--quick]` | git, cmake, kompilator | instalacja z katalogu tymczasowego, bezpieczeństwo, opcje |
-| 4 | akceptacja na prawdziwych danych | ręcznie, A1–A9 | wagi LFS, sieć, HF | działa naprawdę; jakość mowy |
+| 3 | pakiety Nix | `nix-build` `nix/phonemis.nix`, `nix/kokoro-model.nix` | Nix, sieć | budowanie Phonemis, wagi i model z sumami SHA-256, test dymny runnera w każdym języku |
+| 4 | akceptacja na prawdziwych danych | ręcznie, A1–A10 | devenv (pakiety Nix) | działa naprawdę; jakość mowy |
 | 5 | zgodność z Pythonem | diff IPA + regeneracja korpusu | projekt Pythona | ten sam wynik co wersja referencyjna |
 
 Wszystkie polecenia uruchamiaj w katalogu głównym projektu, w `devenv shell` (zmienne `ORT_LIBRARY_PATH`,
@@ -34,13 +34,14 @@ pk-doctor
 plkokoro-rs — diagnostyka środowiska
   OK    rustc 1.xx… / cargo 1.xx…
   OK    libonnxruntime: /nix/store/…/lib/libonnxruntime.so
-  OK    phonemis_runner: …/phonemis/build/phonemis_runner
-  OK    wagi Phonemis: …/phonemis/data/pl/phonemizer_pl.bin
-  OK    model Kokoro: …/models/kokoro-kmp-models
+  OK    phonemis_runner: /nix/store/…-phonemis-…/build/phonemis_runner
+  OK    wagi Phonemis (pl): /nix/store/…-phonemis-…/data/pl/phonemizer_pl.bin
+  OK    model Kokoro: /nix/store/…-kokoro-model-v2.1.1
+  ....  głos: pl/pm_mateusz
 ```
 
-Linia `....  model Kokoro jeszcze nie pobrany` jest normalna przed `pk-fetch-model`. Każda linia `BRAK` ma w nawiasie
-polecenie naprawy (`pk-phonemis-build`, `git lfs pull …`, `env.PHONEMIS_RUNNER` w `devenv.local.nix`).
+Po jednej linii `wagi Phonemis (…)` na każdy język z `plkokoro.phonemisLanguages` i `głos: …` na każdy głos z
+`plkokoro.voices` ([devenv.md](devenv.md)).
 
 ---
 
@@ -63,16 +64,22 @@ env -u ORT_LIBRARY_PATH cargo test --workspace -- --nocapture 2>&1 | grep -E "^t
 pk-test            # = cargo test --workspace
 ```
 
-**Kryterium zaliczenia:** **43 passed, 0 failed, 0 SKIP**, kod wyjścia 0 (sprawdź: `pk-test -- --nocapture 2>&1 | grep -c SKIP:`
+**Kryterium zaliczenia:** **53 passed, 0 failed, 0 SKIP**, kod wyjścia 0 (sprawdź: `pk-test -- --nocapture 2>&1 | grep -c SKIP:`
 ma dać `0`). Zestaw po skompilowaniu trwa kilka sekund.
+
+**Znany problem — uruchamiaj po kolei:** `pk-test -- --test-threads=1`. Równolegle `wav_engine` potrafi paść
+SIGABRT-em (`OrtGetApiBase must be present`, 3 z 5 przebiegów): `ort 2.0.0-rc.13` po nieudanym `init_from` ze złą
+ścieżką (test `wrong_ort_library_is_reported`) oznacza bibliotekę jako załadowaną, więc kolejna inicjalizacja w tym
+samym procesie panikuje. Po kolei (kolejność alfabetyczna) wszystkie testy przechodzą. Bez ORT (`env -u
+ORT_LIBRARY_PATH`) pomijanych jest 9 testów (`SKIP:`).
 
 | Plik | Testy | Dowodzi |
 |---|---|---|
-| `plkokoro/src/lib.rs` (moduł `tests`) | 12 testów jednostkowych | logika `Model` na atrapie silnika i backendu, bez ORT: cięcie na porcje i pauzy, znaki Unicode liczone w code pointach, wiersz stylu `n−1`, filtr słownika, walidacja opcji, `unload`/`Drop`, `Send + Sync`, anulowanie |
+| `plkokoro/src/lib.rs`, `text.rs` (moduły `tests`) | 15 testów jednostkowych | logika `Model` na atrapie silnika i backendu, bez ORT: cięcie na porcje i pauzy, znaki Unicode liczone w code pointach, wiersz stylu `n−1`, filtr słownika, walidacja opcji, `unload`/`Drop`, `Send + Sync`, anulowanie |
 | doctest w `lib.rs` | 1 | przykład z dokumentacji kompiluje się (`no_run`) |
 | `tests/parity.rs` | `parity_normalize` `…split_sentences` `…pack_ipa` `…overrides` | wynik Rust = wynik Pythona: 3538 + 3513 + 2500 + 6014 = **15 565** przypadków z `testdata/parity.json` (te same co w Go) |
-| `tests/g2p.rs` | `runner_basics` `…config_errors` `…parallel_error_and_cancel` | parsowanie wyjścia runnera (ANSI), wyprowadzanie wag z położenia runnera, błędy (brak runnera, brak `+x`, wskaźnik LFS, brak wag), równoległość (8 zdań po 0,3 s w < 1,5 s), przerwanie podprocesów |
-| `tests/store.rs` | `local_first_offline_and_fetch` `empty_file_is_redownloaded` `http_errors_and_truncation` `rejects_path_traversal_from_catalog` `catalog_without_polish_language` `cancelled_download_leaves_nothing` | pobieranie tylko gdy brak pliku, tryb offline, pusty plik, HTTP 404, ucięta odpowiedź (bez śladu na dysku), odrzucanie `..` i ścieżek bezwzględnych, anulowanie |
+| `tests/g2p.rs` | `runner_basics` `…config_errors` `…parallel_error_and_cancel` `…language_weights_and_english_extras` | parsowanie wyjścia runnera (ANSI), wyprowadzanie wag z położenia runnera, błędy (brak runnera, brak `+x`, wskaźnik LFS, brak wag), równoległość (8 zdań po 0,3 s w < 1,5 s), przerwanie podprocesów |
+| `tests/store.rs` | `local_first_offline_and_fetch` `empty_file_is_redownloaded` `http_errors_and_truncation` `rejects_path_traversal_from_catalog` `catalog_without_polish_language` `download_selected_voice_and_list_voices` `read_only_model_dir_gives_actionable_error` `cancelled_download_leaves_nothing` | pobieranie tylko gdy brak pliku, tryb offline, pusty plik, HTTP 404, ucięta odpowiedź (bez śladu na dysku), odrzucanie `..` i ścieżek bezwzględnych, anulowanie |
 | `tests/wav_engine.rs` | `encode_wav_header_and_samples` `engine_rejects_model_with_wrong_io` `unsupported_provider_is_rejected` `wrong_ort_library_is_reported` | nagłówek i próbki WAV (obcinanie), odrzucenie modelu o złym interfejsie, nieznany provider, zła biblioteka ORT |
 | `tests/model.rs` | `lifecycle_real_ort` | pełny cykl na **prawdziwej sesji ORT**: liczba żądań HTTP, format IPA, **wartości próbek** (dowodzą, że `input_ids` z BOS/EOS, wiersz stylu `n−1` i `speed` trafiają do modelu), pauzy, wstawki ręczne, filtr słownika (ostrzeżenie raz), `unload` |
 | | `reload_and_two_models` | dwa modele naraz, zwolnienie jednego nie psuje drugiego, ponowne ładowanie |
@@ -80,10 +87,13 @@ ma dać `0`). Zestaw po skompilowaniu trwa kilka sekund.
 | | `synth_options_pause_semantics` | różnica z pauzami i bez = dokładnie jedna pauza zdaniowa; `..Default::default()` zachowuje pauzy |
 | | `skip_kokoro_uses_no_network` `custom_g2p_and_cache` | `skip_kokoro` nie używa sieci, własny backend, cache, zamknięcie backendu w `unload` |
 | | `concurrent_use_and_unload` | 8 wątków + `unload` w trakcie: tylko sukces albo `Unloaded` |
+| | `phonemizer_language_follows_speaker_and_can_be_overridden` `language_without_frontend_and_bad_selection` | język fonemizera z katalogu (`de`, `pt-br` → `pt`) i nadpisanie, brak normalizacji PL dla `de`, `ja` bez G2P, błędy wyboru języka/głosu/wag |
+| | `selected_voice_is_used_for_synthesis` | wybrany głos pobierany zamiast domyślnego, synteza na ORT; `ja` syntezuje z IPA bez runnera |
 | `plkokoro-cli/tests/cli.rs` | `fetch_then_offline` | `--fetch-only`, potem `--offline` bez serwera |
 | | `synthesize_wav_flags_after_text` | synteza end-to-end binarką, flagi po tekście, WAV 24 kHz mono 16-bit, drugie uruchomienie po wyłączeniu serwera |
 | | `phonemize_only_no_kokoro` `ipa_and_file_input` | `--phonemize-only` (czyste IPA, zero żądań), `--no-normalize`, `PHONEMIS_RUNNER` z env, `--ipa`, `-f` |
 | | `errors_and_exit_codes` | kody wyjścia 0/1/2 i komunikaty (brak runnera, zły runner, zły provider, offline bez modelu, `speed 0`, `KOKORO_OFFLINE`, `-h`…) |
+| | `list_voices_and_language_selection` | `--list-voices`, `--lang`/`--voice`/`--phonemis-lang` i `KOKORO_LANG` trafiają do runnera, błąd złego głosu |
 | | `sigint_cancels_running_phonemization` | **SIGINT w trakcie fonemizacji**: kod 1, „anulowano”, poniżej 3 s (w wersji Go tylko ręcznie) |
 
 Atrapa modelu (`testdata/tiny_kokoro.onnx`) ma interfejs Kokoro, a wyjście zależy od wszystkich wejść — dlatego testy
@@ -126,47 +136,32 @@ Jakość kodu: `cargo fmt --all -- --check` (konfiguracja w `rustfmt.toml`) i `c
 oba czyste na rustc 1.91.1.
 
 **Dotąd zaliczone:** ORT 1.21.0, 1.22.0, 1.23.2, 1.30.0 (Linux x86_64), rustc 1.91.1: `cargo test --workspace` = 43 passed,
-kod wyjścia 0, na każdej wersji; testy CLI także na binarce release (ORT 1.22.0 i 1.21.0).
+kod wyjścia 0, na każdej wersji; testy CLI także na binarce release (ORT 1.22.0 i 1.21.0). Po dodaniu wyboru języka
+i głosu (2026-09-23): ORT 1.27.1 z nixpkgs, rustc 1.98.1, `--test-threads=1` = 53 passed.
 
 ---
 
-## Poziom 3 — skrypt budujący Phonemis
-
-Wspólny z wersją Go (skrypty w `scripts/` są identyczne i nie zależą od języka).
+## Poziom 3 — pakiety Nix
 
 ```fish
-pk-test-phonemis --src ~/Dokumenty/AI/Phonemis --quick     # ok. 6 s: walidacja opcji + scenariusz błędu
-pk-test-phonemis --src ~/Dokumenty/AI/Phonemis             # pełny: 3 świeże kompilacje, kilka minut
+nix-build --no-out-link -E 'with import <nixpkgs> {}; callPackage ./nix/phonemis.nix { languages = [ "pl" "de" "en-us" ]; }'
+nix-build --no-out-link -E 'with import <nixpkgs> {}; callPackage ./nix/kokoro-model.nix { voices = [ "pm_mateusz" "df_anna" ]; }'
 ```
 
-`--src` wskazuje dowolny checkout Phonemis — z niego brane są **tylko źródła**. Test **nie potrzebuje** sieci LFS ani
-prawdziwych wag: buduje z lokalnych „fałszywych upstreamów” i testuje **kopię** skryptu w katalogu roboczym testu.
-`--keep` zachowuje katalog roboczy (przy porażce zachowuje go zawsze i wypisuje ścieżkę).
-
-**Kryterium zaliczenia:** `WSZYSTKO OK — 18 asercji` (`--quick`) albo `— 51 asercji` (pełny), kod wyjścia 0. Oba przebiegi
-zaliczone w drzewie Rusta.
-
-| Scenariusz | Asercje | Sprawdza |
-|---|---|---|
-| **V** walidacja | 13 | zły/brakujący argument, `--type`, kombinacje wykluczające się, `--dir` nie będący repo, `--help` |
-| **S2** nieudane budowanie | 4 | zepsuty upstream: błąd, **wcześniejsza instalacja nietknięta (sumy kontrolne)**, katalog tymczasowy posprzątany |
-| **S1** tryb domyślny | 9 | instalacja dokładnie `BUILDINFO LICENSE build/phonemis_runner`, tryb 755, brak wag przy wskaźniku LFS + ostrzeżenie, runner działa z `/` |
-| **S3** wagi + `--keep-tmp` | 6 | wagi zainstalowane, **test dymny wykrywa zepsute wagi**, `--keep-tmp` |
-| **S4** trwały `--dir` | 18 | domyślny prefix, flagi Release, drugie uruchomienie bez rekompilacji, `--update`, `--ref`, `--no-install` |
-
-**Nie objęte:** `--tests`, `--type` inne niż Release/Debug, `--cmake-arg`, wagi z prawdziwego Git LFS.
+**Kryterium zaliczenia:** oba kończą się ścieżką w `/nix/store`. `nix/phonemis.nix` ma `installCheckPhase`: runner
+fonemizuje „Test 123.” w każdym języku i musi dać niepuste IPA (w logu `phonemis pl: tˈɛst stˈɔ dvadʒˈɛɕtɕa tʃˈɨ.`).
+Złe sumy SHA-256 przerywają pobieranie. Nieznany głos/język przerywa już ewaluację z listą dostępnych.
 
 ---
 
 ## Poziom 4 — akceptacja na prawdziwych danych (ręcznie)
 
 Jedyny poziom, który sprawdza to, czego atrapy nie potrafią: prawdziwe wagi Phonemis, prawdziwy model Kokoro,
-zgodność fonemów Phonemis ze słownikiem Kokoro i jakość mowy. **Nie był wykonywany** w środowisku, w którym powstał
-kod (brak dostępu do LFS i HF). Wykonaj po kolei; przy porażce zatrzymaj się.
+zgodność fonemów Phonemis ze słownikiem Kokoro i jakość mowy. A1–A5 i A10 wykonane 2026-09-23 (pakiety Nix,
+ORT 1.27.1). Wykonaj po kolei; przy porażce zatrzymaj się.
 
-**A1.** `pk-phonemis-build` — oczekiwane kolejno: `==> wagi PL OK (… B)` (rzędu 7 MB), `==> zbudowano…`,
-`==> instalacja do …/phonemis`, na końcu `==> test dymny OK: mˈam stˈɔ dvadʒˈɛɕtɕa tʃˈɨ …`.
-Porażki: `to nadal wskaźnik LFS po lfs pull` (sieć/limit LFS), `test dymny: runner zakończył się błędem` (wagi).
+**A1.** `devenv shell` — przy pierwszym wejściu Nix buduje Phonemis i pobiera model (kilkaset MB); kolejne wejścia są
+natychmiastowe.
 
 **A2.** `pk-doctor` — żadnej linii `BRAK`.
 
@@ -177,7 +172,7 @@ cargo run -q --release -p plkokoro-cli -- --phonemize-only "Mam 123 zł, 5% raba
 Oczekiwane (identyczne z wersją Pythona i Go): `mˈam stˈɔ dvadʒˈɛɕtɕa tʃˈɨ zwˈɔtɛ, pʲˈɛɲtɕ prˈɔʦɛnt rabˈatu.`
 Ręczne fonemy: `… --phonemize-only "Lubię [Kokoro](/kɔkˈɔrɔ/)."` — `kɔkˈɔrɔ` ma stać dosłownie.
 
-**A4. Model:** `pk-fetch-model` (4 linie ze ścieżkami i rozmiarami), potem `pk-fetch-model --offline` (te same 4 linie).
+**A4. Model:** `cargo run -q -p plkokoro-cli -- --fetch-only --offline` — 4 linie ze ścieżkami w `/nix/store` i rozmiarami.
 
 **A5. Pełna synteza — najważniejszy test.**
 ```fish
@@ -209,6 +204,15 @@ zmierzenia**. Jeśli spadek jest znikomy także tam, rozważ oddzielny proces dl
 **A9. Przerwanie.** Uruchom syntezę długiego tekstu i naciśnij Ctrl+C: oczekiwane `błąd: plkokoro: operacja przerwana
 (anulowano)`, kod 1, brak procesów `phonemis_runner` w `ps`. (Automatycznie sprawdza to `sigint_cancels_running_phonemization`
 z fałszywym runnerem; tu z prawdziwym.)
+
+**A10. Inne języki i głosy.** W `devenv.local.nix`: `plkokoro.voices = [ "pm_mateusz" "df_anna" ];`, potem:
+```fish
+plkokoro --lang de --phonemize-only "Es kostet 5 Euro. Über alles." 2>/dev/null   # ɛs kˈɔstət fˈynf ˈɔøroː. / ˈyːbɜ ˈaləs.
+plkokoro --lang de "Guten Tag. Über alles." -o de.wav
+plkokoro --lang de --phonemis-lang pl "Dzień dobry, mam 5 zł." -o akcent.wav
+plkokoro --lang en-us "Hello."      # błąd: brak wag en-us / głosu spoza pakietu — z podpowiedzią
+```
+**Odsłuchaj** `de.wav` i `akcent.wav` (polski tekst niemieckim głosem).
 
 ---
 
@@ -251,14 +255,15 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
 
 - **Jakość mowy i prawdziwy Kokoro** — tylko poziom 4 (A5–A6), odsłuchem.
 - **Zgodność fonemów Phonemis ze słownikiem Kokoro** — widoczna dopiero w A5 jako ostrzeżenie `[uwaga]`.
-- **Prawdziwe wagi Phonemis z Git LFS i pomyślny test dymny** — A1.
+- **Jakość fonemizacji i mowy poza pl/de** — wagi `fr es it pt hi en-gb` mają sumy z wskaźników LFS, ale nie były
+  budowane; `en-us` zbudowane i fonemizuje, synteza angielska nie była odsłuchana.
 - **Prawdziwy Hugging Face** (CDN/xet, tokeny, limity, HTTPS/TLS) — serwer testowy udaje HF po zwykłym HTTP, w tym
   przekierowanie; **TLS (`rustls`) nie był ćwiczony**.
 - **Providery ORT inne niż CPU na sprzęcie** — kompilują się i dają błąd przy braku providera (sprawdzone MIGraphX),
   ale nie były uruchamiane na GPU (CUDA, ROCm, MIGraphX, …).
 - **Zwolnienie pamięci z prawdziwym modelem** (A8) — z atrapą sama biblioteka ORT dominuje pomiar.
-- **Systemy i architektury poza Linux x86_64**; rustc inne niż 1.91.1 (nixpkgs ma 1.98.1); ORT 1.27.1 z nixpkgs.
-- **Prawdziwy `devenv shell`** — ewaluacja `devenv.nix` i składnia skryptów sprawdzone, samo wejście do powłoki nie.
+- **Systemy i architektury poza Linux x86_64**.
+- **Nadpisanie `plkokoro.voices` przez prawdziwy `devenv.local.nix`** — pakiety z innymi listami budowane `nix-build`.
 - **Drugi Ctrl+C (kod 130)** i zawieszone połączenie w trakcie odczytu ciała pobieranego pliku.
 - **Testy upstreamu Phonemis** (`phonemis_test`) — nie uruchamiane.
 
@@ -276,8 +281,10 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
 | `parity_*` | zmieniono normalizację/dzielenie po jednej stronie; zregeneruj korpus (poziom 5) i rozstrzygnij, która implementacja jest poprawna |
 | `runner_parallel_error_and_cancel`: zbyt długo | wolna maszyna (próg 1,5 s dla 8 zdań po 0,3 s) albo jeden rdzeń (`workers`) |
 | `http_errors_and_truncation` wisi | brak limitów czasu w kliencie HTTP albo serwer testowy nie zamyka połączenia (używamy surowego TCP, nie `tiny_http`) |
-| `pk-test-phonemis`: FAIL w S1/S3/S4 na kompilacji | nowszy kompilator wymaga kolejnych nagłówków w liście `-include` |
-| A5: cisza lub szum | zły model/głos w katalogu modelu; usuń katalog modelu i `pk-fetch-model` |
+| `SIGABRT` w `wav_engine` przy równoległym `pk-test` | znany problem `ort` (poziom 2) — uruchom `pk-test -- --test-threads=1` |
+| budowanie `nix/phonemis.nix` pada na kompilacji | nowszy kompilator wymaga kolejnych nagłówków w liście `-include` (`NIX_CFLAGS_COMPILE`) |
+| `hash mismatch` w `nix-build` | zmieniony plik po stronie HF/GitHub — sprawdź rewizję i sumy ([devenv.md](devenv.md), „Podbijanie wersji”) |
+| A5: cisza lub szum | zły model/głos w katalogu modelu (np. `KOKORO_MODEL_DIR` nadpisany ręcznie) |
 
 ---
 
@@ -286,9 +293,9 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
 ```fish
 cargo fmt --all -- --check                            # ma nic nie wypisać
 cargo clippy --workspace --all-targets                # bez ostrzeżeń
-pk-test                                               # poziom 2: 43 passed, 0 SKIP
+pk-test -- --test-threads=1                           # poziom 2: 53 passed, 0 SKIP
 # rozszerzona zgodność (ORT 1.21.0 / 1.22.0 / 1.23.2 / 1.30.0, sprawdź kody wyjścia) — patrz poziom 2
-pk-test-phonemis --src ~/Dokumenty/AI/Phonemis        # poziom 3: 51 asercji
-# akceptacja A1–A9 na prawdziwych danych — poziom 4
+# pakiety Nix — poziom 3
+# akceptacja A1–A10 na prawdziwych danych — poziom 4
 git status --short                                    # brak niezamierzonych plików (target/, phonemis/, models/, *.wav są w .gitignore)
 ```

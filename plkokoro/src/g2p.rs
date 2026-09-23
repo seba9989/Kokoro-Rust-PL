@@ -37,7 +37,8 @@ static ANSI_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-9;]*m")
 pub(crate) fn check_weights(path: &Path) -> Result<()> {
     let mut f = std::fs::File::open(path).map_err(|e| {
         Error::Config(format!(
-            "brak wag Phonemis: {}\nUstaw PHONEMIS_MODEL / Config::phonemis_weights (repo Phonemis: data/pl/phonemizer_pl.bin): {e}",
+            "brak wag Phonemis: {}\nUstaw PHONEMIS_MODEL / Config::phonemis_weights (repo Phonemis: data/<język>/phonemizer_<język>.bin) \
+             albo dodaj język do plkokoro.phonemisLanguages w devenv: {e}",
             path.display()
         ))
     })?;
@@ -45,7 +46,7 @@ pub(crate) fn check_weights(path: &Path) -> Result<()> {
     let n = f.read(&mut head)?;
     if head[..n].starts_with(b"version https://git-lfs") {
         return Err(Error::Config(format!(
-            "{} to wskaźnik Git LFS, a nie wagi modelu.\nPobierz je: git -C <repo Phonemis> lfs pull --include='data/pl/*'",
+            "{} to wskaźnik Git LFS, a nie wagi modelu.\nPobierz je: git -C <repo Phonemis> lfs pull --include='data/<język>/*'",
             path.display()
         )));
     }
@@ -66,19 +67,35 @@ fn default_workers() -> usize {
     thread::available_parallelism().map_or(2, |n| n.get()).min(8)
 }
 
-/// Backend przez podproces: `phonemis_runner --lang pl --model <wagi> "tekst"`.
+/// Języki obsługiwane przez `phonemis_runner` (kody profili Phonemis; katalog wag `data/<kod>/`).
+pub const PHONEMIS_LANGS: [&str; 9] = ["pl", "en-us", "en-gb", "de", "fr", "es", "it", "pt", "hi"];
+
+/// Nazwa pliku wag w repo Phonemis: `phonemizer_<kod>.bin`, z `-` zamienionym na `_` (`en-us` -> `phonemizer_en_us.bin`).
+pub fn phonemis_weights_file(lang: &str) -> String {
+    format!("phonemizer_{}.bin", lang.replace('-', "_"))
+}
+
+/// Backend przez podproces: `phonemis_runner --lang <kod> --model <wagi> [--lexicon …] [--tagger …] "tekst"`.
 pub struct RunnerG2p {
     runner: PathBuf,
     weights: PathBuf,
+    extra: Vec<(&'static str, PathBuf)>, // opcjonalne --lexicon / --tagger (angielski)
     lang: String,
     timeout: Duration,
     workers: usize,
 }
 
 impl RunnerG2p {
-    /// `weights == None` => `PHONEMIS_MODEL` albo `<repo>/data/pl/phonemizer_pl.bin` wyprowadzone z położenia runnera
-    /// (`<repo>/build/phonemis_runner`).
-    pub fn new(runner: impl AsRef<Path>, weights: Option<PathBuf>, workers: Option<usize>) -> Result<Self> {
+    /// `lang` to kod profilu Phonemis (`PHONEMIS_LANGS`). `weights == None` => `PHONEMIS_MODEL` albo
+    /// `<repo>/data/<lang>/phonemizer_<lang>.bin` wyprowadzone z położenia runnera (`<repo>/build/phonemis_runner`).
+    /// `lexicon_full.json` i `tagger.json` leżące obok wag (angielski) są przekazywane runnerowi automatycznie.
+    pub fn new(runner: impl AsRef<Path>, lang: &str, weights: Option<PathBuf>, workers: Option<usize>) -> Result<Self> {
+        if !PHONEMIS_LANGS.contains(&lang) {
+            return Err(Error::Config(format!(
+                "Phonemis nie obsługuje języka {lang:?}; dostępne: {}. Dla innych języków podaj IPA (--ipa) albo własny Config::g2p",
+                PHONEMIS_LANGS.join(", ")
+            )));
+        }
         let runner = expand_home(runner.as_ref());
         let meta = std::fs::metadata(&runner).map_err(|e| Error::Config(format!("brak phonemis_runner: {}: {e}", runner.display())))?;
         if !meta.is_file() || !is_executable(&meta) {
@@ -88,14 +105,21 @@ impl RunnerG2p {
             weights.or_else(|| std::env::var_os("PHONEMIS_MODEL").filter(|v| !v.is_empty()).map(PathBuf::from)).unwrap_or_else(|| {
                 let resolved = std::fs::canonicalize(&runner).unwrap_or_else(|_| runner.clone());
                 let repo = resolved.parent().and_then(Path::parent).unwrap_or(Path::new("."));
-                repo.join("data").join("pl").join("phonemizer_pl.bin")
+                repo.join("data").join(lang).join(phonemis_weights_file(lang))
             });
         let weights = expand_home(&weights);
         check_weights(&weights)?;
+        let dir = weights.parent().unwrap_or(Path::new("."));
+        let extra = [("--lexicon", "lexicon_full.json"), ("--tagger", "tagger.json")]
+            .into_iter()
+            .map(|(flag, name)| (flag, dir.join(name)))
+            .filter(|(_, p)| lang.starts_with("en-") && p.is_file())
+            .collect();
         Ok(Self {
             runner,
             weights,
-            lang: "pl".into(),
+            extra,
+            lang: lang.to_string(),
             timeout: Duration::from_secs(60),
             workers: workers.filter(|&w| w > 0).unwrap_or_else(default_workers),
         })
@@ -104,6 +128,11 @@ impl RunnerG2p {
     /// Ścieżka wag, z których korzysta backend (przydatna w testach i diagnostyce).
     pub fn weights(&self) -> &Path {
         &self.weights
+    }
+
+    /// Kod języka Phonemis, z którym działa backend.
+    pub fn lang(&self) -> &str {
+        &self.lang
     }
 
     fn phonemize_one(&self, text: &str, cancels: &[&CancelToken]) -> Result<String> {
@@ -121,6 +150,7 @@ impl RunnerG2p {
             .arg(&self.lang)
             .arg("--model")
             .arg(&self.weights)
+            .args(self.extra.iter().flat_map(|(flag, p)| [std::ffi::OsStr::new(flag), p.as_os_str()]))
             .arg(text)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

@@ -236,3 +236,95 @@ fn concurrent_use_and_unload() {
         model.unload().unwrap();
     });
 }
+
+/// `skip_kokoro` + `lang`: czyta tylko catalog.json (bez modelu i ORT), więc wybór języka i głosu widać bez sesji ONNX.
+fn phonemize_only(
+    tmp: &std::path::Path,
+    hf: &TestServer,
+    lang: &str,
+    voice: Option<&str>,
+    phonemis_lang: Option<&str>,
+) -> plkokoro::Result<plkokoro::Model> {
+    let (runner, _) = fake_runner(tmp);
+    load_model(Config {
+        model_dir: Some(tmp.join("m")),
+        hf_endpoint: Some(hf.url.clone()),
+        phonemis_runner: Some(runner),
+        lang: Some(lang.into()),
+        voice: voice.map(Into::into),
+        phonemis_lang: phonemis_lang.map(Into::into),
+        skip_kokoro: true,
+        ..Default::default()
+    })
+}
+
+#[test]
+fn phonemizer_language_follows_speaker_and_can_be_overridden() {
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+    let de = fake_weights(tmp.path(), "de");
+    fake_weights(tmp.path(), "pt");
+
+    let m = phonemize_only(tmp.path(), &hf, "de", Some("dm_b"), None).unwrap();
+    assert_eq!((m.lang(), m.voice(), m.phonemis_lang()), (Some("de"), Some("dm_b"), Some("de")));
+    let args = m.text_to_ipa("ARGS", &TextOptions::default()).unwrap();
+    assert!(args.starts_with("--lang de --model") && args.ends_with(&de.display().to_string()), "{args}");
+    // bez normalizacji PL dla niemieckiego fonemizera
+    assert_eq!(m.text_to_ipa("Es kostet 5 zł.", &TextOptions::default()).unwrap(), "es kostet 5 zł.");
+
+    // pt-br -> frontend „pt” z katalogu; głos domyślny języka
+    let m = phonemize_only(tmp.path(), &hf, "pt-br", None, None).unwrap();
+    assert_eq!((m.voice(), m.phonemis_lang()), (Some("pf_a"), Some("pt")));
+
+    // mówca niemiecki, fonemizer polski (akcent zamierzony)
+    let m = phonemize_only(tmp.path(), &hf, "de", None, Some("pl")).unwrap();
+    assert_eq!((m.voice(), m.phonemis_lang()), (Some("df_a"), Some("pl")));
+    assert_eq!(m.text_to_ipa("Mam 5 zł.", &TextOptions::default()).unwrap(), "mam 5 złotych.");
+}
+
+#[test]
+fn language_without_frontend_and_bad_selection() {
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+
+    // ja: brak frontendu Phonemis -> model bez G2P (runner nie jest nawet wymagany), text_to_ipa z instrukcją
+    let m = load_model(Config {
+        model_dir: Some(tmp.path().join("m")),
+        hf_endpoint: Some(hf.url.clone()),
+        lang: Some("ja".into()),
+        skip_kokoro: true,
+        ..Default::default()
+    })
+    .unwrap();
+    assert_eq!(m.phonemis_lang(), None);
+    let err = m.text_to_ipa("こんにちは", &TextOptions::default()).unwrap_err();
+    assert!(err.to_string().contains("--ipa"), "{err}");
+
+    let err = phonemize_only(tmp.path(), &hf, "xx", None, None).err().unwrap().to_string();
+    assert!(err.contains("nie znaleziono języka \"xx\"") && err.contains("pt-br"), "{err}");
+    let err = phonemize_only(tmp.path(), &hf, "de", Some("nope"), None).err().unwrap().to_string();
+    assert!(err.contains("nie ma głosu \"nope\"") && err.contains("df_a, dm_b"), "{err}");
+    let err = phonemize_only(tmp.path(), &hf, "pl", Some("dm_b"), None).err().unwrap().to_string();
+    assert!(err.contains("należy do języka \"de\""), "{err}");
+    // brak wag dla wybranego języka fonemizera
+    let err = phonemize_only(tmp.path(), &hf, "de", None, Some("fr")).err().unwrap().to_string();
+    assert!(err.contains("brak wag Phonemis") && err.contains("phonemizer_fr.bin"), "{err}");
+}
+
+#[test]
+fn selected_voice_is_used_for_synthesis() {
+    let ort = require_ort!();
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+    fake_weights(tmp.path(), "de");
+    let model = load_model(Config { lang: Some("de".into()), voice: Some("dm_b".into()), ..base_cfg(tmp.path(), &hf.url, &ort) }).unwrap();
+    assert_eq!(model.voice(), Some("dm_b"));
+    let base = tmp.path().join("models").join(plkokoro::REVISION);
+    assert!(base.join("voices/de_b.bin").is_file() && !base.join("voices/pl.bin").exists(), "pobrano nie ten głos");
+    let wav = model.synthesize("abc", &SynthOptions::default()).unwrap();
+    assert_eq!(wav.len(), expected_chunk("abc", 1.0).0);
+
+    // ja: synteza z gotowego IPA działa bez fonemizera
+    let m = load_model(Config { lang: Some("ja".into()), phonemis_runner: None, ..base_cfg(tmp.path(), &hf.url, &ort) }).unwrap();
+    assert!(m.synthesize("abc", &SynthOptions::default()).is_ok());
+}

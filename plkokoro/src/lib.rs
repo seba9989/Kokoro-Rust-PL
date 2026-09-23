@@ -23,8 +23,12 @@
 //! Kokoro = 510 tokenów).
 //!
 //! Wymagania w czasie działania: `libonnxruntime.so` >= 1.21 (`Config::ort_library` / `ORT_LIBRARY_PATH`) oraz
-//! `phonemis_runner` z wagami `phonemizer_pl.bin`. Zmienne środowiskowe: `KOKORO_MODEL_DIR`, `KOKORO_OFFLINE`,
-//! `HF_ENDPOINT`, `HF_TOKEN`, `PHONEMIS_RUNNER`, `PHONEMIS_MODEL`, `ORT_LIBRARY_PATH`.
+//! `phonemis_runner` z wagami języka fonemizera (np. `phonemizer_pl.bin`). Zmienne środowiskowe: `KOKORO_MODEL_DIR`,
+//! `KOKORO_OFFLINE`, `KOKORO_LANG`, `KOKORO_VOICE`, `HF_ENDPOINT`, `HF_TOKEN`, `PHONEMIS_RUNNER`, `PHONEMIS_MODEL`,
+//! `PHONEMIS_LANG`, `ORT_LIBRARY_PATH`.
+//!
+//! Domyślnie wszystko jest polskie. Język mówcy (`Config::lang`), głos (`Config::voice`, lista: `list_voices`)
+//! i język fonemizera (`Config::phonemis_lang`) wybiera się niezależnie — np. polski tekst czytany głosem `af_heart`.
 //!
 //! Logi idą przez fasadę `log` (`[model]`, `[normalize]`, `[phonemis]`, `[uwaga]`); bez skonfigurowanego loggera nic
 //! nie jest wypisywane.
@@ -50,15 +54,17 @@ use regex::Regex;
 
 pub use cancel::CancelToken;
 pub use error::{Error, Result};
-pub use g2p::{G2p, RunnerG2p};
+pub use g2p::{phonemis_weights_file, G2p, RunnerG2p, PHONEMIS_LANGS};
 pub use normalize::normalize_pl;
-pub use store::{LANG_ID, REPO_ID, REVISION, SAMPLE_RATE, STYLE_ROWS};
+#[allow(deprecated)]
+pub use store::LANG_ID;
+pub use store::{VoiceInfo, DEFAULT_LANG, REPO_ID, REVISION, SAMPLE_RATE, STYLE_ROWS};
 pub use wav::{encode_wav, write_wav};
 
 use engine::{Engine, OrtEngine};
 use overrides::{extract_overrides, sentence_ipa, show_overrides, text_pieces};
 use store::{Store, STYLE_DIM};
-use text::{collapse_spaces, pack_ipa, split_sentences};
+use text::{collapse_spaces, pack_ipa, split_sentences_lang};
 
 #[doc(hidden)]
 pub mod __internal {
@@ -77,9 +83,20 @@ pub struct Config {
     pub offline: bool,
     /// Serwer z modelem (domyślnie `HF_ENDPOINT` albo `https://huggingface.co`).
     pub hf_endpoint: Option<String>,
+    /// Język mówcy — id języka z `catalog.json`, np. `pl`, `de`, `en-us` (albo `KOKORO_LANG`; domyślnie `DEFAULT_LANG`).
+    /// Wyznacza głos, model ONNX i tokenizer.
+    pub lang: Option<String>,
+    /// Głos w języku mówcy, np. `pm_mateusz`, `af_heart` (albo `KOKORO_VOICE`; domyślnie głos domyślny języka).
+    /// Lista: `list_voices`.
+    pub voice: Option<String>,
+    /// Język fonemizera Phonemis (`PHONEMIS_LANGS`; albo `PHONEMIS_LANG`). Domyślnie język frontendu tekstowego
+    /// z katalogu dla języka mówcy (np. `pt-br` -> `pt`); dla ja/zh nie ma frontendu — wtedy `text_to_ipa` wymaga
+    /// własnego `g2p`, a `synthesize` przyjmuje gotowe IPA.
+    pub phonemis_lang: Option<String>,
     /// Ścieżka do `phonemis_runner` (albo `PHONEMIS_RUNNER`).
     pub phonemis_runner: Option<PathBuf>,
-    /// `phonemizer_pl.bin` (albo `PHONEMIS_MODEL`; domyślnie wyprowadzane z położenia runnera).
+    /// Wagi Phonemis dla języka fonemizera, np. `phonemizer_pl.bin` (albo `PHONEMIS_MODEL`; domyślnie
+    /// `<repo>/data/<język>/phonemizer_<język>.bin` wyprowadzane z położenia runnera).
     pub phonemis_weights: Option<PathBuf>,
     /// Własny backend fonemizacji zamiast runnera; `Model` zamknie go w `unload`.
     pub g2p: Option<Box<dyn G2p>>,
@@ -137,12 +154,20 @@ const MAX_CACHE_ENTRIES: usize = 20_000;
 type Loaded = (HashMap<char, i64>, Vec<f32>, Box<dyn Engine>);
 
 struct Inner {
-    g2p: Box<dyn G2p>,
+    g2p: Option<Box<dyn G2p>>, // None: język bez frontendu (ja, zh) — tylko synteza z gotowego IPA
     engine: Option<Box<dyn Engine>>,
     vocab: HashMap<char, i64>,
     style: Vec<f32>,
     cache: Mutex<HashMap<String, String>>, // kawałek tekstu -> surowe IPA
     warned: Mutex<HashSet<char>>,
+}
+
+/// Co wybrano przy ładowaniu (zostaje dostępne także po `unload`).
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Selection {
+    lang: Option<String>,
+    voice: Option<String>,
+    g2p_lang: Option<String>,
 }
 
 /// Załadowany model (backend Phonemis + sesja Kokoro). Bezpieczny współbieżnie (`Send + Sync`): `unload` czeka na
@@ -151,14 +176,29 @@ pub struct Model {
     state: RwLock<Option<Inner>>,
     cancel: CancelToken,
     dir: PathBuf,
+    sel: Selection,
 }
 
-/// Pobiera pliki Kokoro do lokalnego katalogu i zwraca ich ścieżki. Nic nie ładuje do pamięci.
+/// `Some(v)` z pola konfiguracji albo niepustej zmiennej środowiskowej.
+fn cfg_or_env(v: &Option<String>, env: &str) -> Option<String> {
+    v.clone().filter(|s| !s.is_empty()).or_else(|| std::env::var(env).ok().filter(|s| !s.is_empty()))
+}
+
+fn speaker_lang(cfg: &Config) -> Option<String> {
+    cfg_or_env(&cfg.lang, "KOKORO_LANG")
+}
+
+fn speaker_voice(cfg: &Config) -> Option<String> {
+    cfg_or_env(&cfg.voice, "KOKORO_VOICE")
+}
+
+/// Pobiera pliki Kokoro wybranego języka i głosu (`Config::lang`, `Config::voice`) do lokalnego katalogu i zwraca ich
+/// ścieżki. Nic nie ładuje do pamięci.
 pub fn download_model(cfg: &Config) -> Result<Vec<PathBuf>> {
     let store = Store::new(cfg);
     let cancel = cfg.cancel.clone().unwrap_or_default();
     let cat = store.load_catalog(&cancel)?;
-    let r = cat.resolve_polish()?;
+    let r = cat.resolve(speaker_lang(cfg).as_deref().unwrap_or(DEFAULT_LANG), speaker_voice(cfg).as_deref())?;
     let mut paths = vec![store.base().join("catalog.json")];
     for rel in [&r.tokenizer, &r.voice, &r.model] {
         paths.push(store.get(rel, &cancel)?);
@@ -166,14 +206,45 @@ pub fn download_model(cfg: &Config) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-/// Ładuje model: backend Phonemis + Kokoro (sesja ONNX, słownik, styl głosu). Brakujące pliki modelu są pobierane
-/// raz do `Config::model_dir`, potem sieć nie jest używana. Backend G2P powstaje pierwszy, żeby błąd konfiguracji
-/// wyszedł przed pobieraniem kilkuset MB.
+/// Wszystkie głosy z `catalog.json` (wszystkie języki). Czyta tylko katalog — przy braku lokalnej kopii pobiera go
+/// (kilkadziesiąt KB), chyba że `offline`.
+pub fn list_voices(cfg: &Config) -> Result<Vec<VoiceInfo>> {
+    let store = Store::new(cfg);
+    let cancel = cfg.cancel.clone().unwrap_or_default();
+    Ok(store.load_catalog(&cancel)?.voices())
+}
+
+/// Ładuje model: backend Phonemis + Kokoro (sesja ONNX, słownik, styl głosu) dla wybranego języka mówcy, głosu
+/// i języka fonemizera. Brakujące pliki modelu są pobierane raz do `Config::model_dir`, potem sieć nie jest używana.
+/// Najpierw czytany jest mały `catalog.json` (wybór głosu), potem powstaje backend G2P — błąd konfiguracji wychodzi
+/// przed pobieraniem kilkuset MB. Przy `skip_kokoro` bez `Config::lang` katalog nie jest czytany wcale.
 pub fn load_model(mut cfg: Config) -> Result<Model> {
     let cancel = cfg.cancel.clone().unwrap_or_default();
-    let g2p: Box<dyn G2p> = match cfg.g2p.take() {
-        Some(g) => g,
-        None => {
+    let store = Store::new(&cfg);
+    let dir = store.root().to_path_buf();
+    let lang = speaker_lang(&cfg);
+
+    let resolved = if cfg.skip_kokoro && lang.is_none() {
+        None
+    } else {
+        let cat = store.load_catalog(&cancel)?;
+        Some(cat.resolve(lang.as_deref().unwrap_or(DEFAULT_LANG), speaker_voice(&cfg).as_deref())?)
+    };
+    let g2p_lang = match (cfg_or_env(&cfg.phonemis_lang, "PHONEMIS_LANG"), &resolved) {
+        (Some(l), _) => Some(l),
+        (None, Some(r)) => r.g2p_lang.clone(),
+        (None, None) => Some(DEFAULT_LANG.to_string()),
+    };
+    let sel = Selection {
+        lang: resolved.as_ref().map(|r| r.lang.clone()),
+        voice: resolved.as_ref().map(|r| r.voice_id.clone()),
+        g2p_lang: g2p_lang.clone(),
+    };
+
+    let g2p: Option<Box<dyn G2p>> = match (cfg.g2p.take(), &g2p_lang) {
+        (Some(g), _) => Some(g),
+        (None, None) => None,
+        (None, Some(gl)) => {
             let runner = cfg
                 .phonemis_runner
                 .clone()
@@ -185,17 +256,13 @@ pub fn load_model(mut cfg: Config) -> Result<Model> {
                             .into(),
                     )
                 })?;
-            Box::new(RunnerG2p::new(runner, cfg.phonemis_weights.clone(), cfg.workers)?)
+            Some(Box::new(RunnerG2p::new(runner, gl, cfg.phonemis_weights.clone(), cfg.workers)?))
         }
     };
-    let store = Store::new(&cfg);
-    let dir = store.root().to_path_buf();
-    if cfg.skip_kokoro {
-        return Ok(Model::from_parts(g2p, None, HashMap::new(), Vec::new(), cancel, dir));
-    }
+    let Some(r) = resolved.filter(|_| !cfg.skip_kokoro) else {
+        return Ok(Model::from_parts(g2p, None, HashMap::new(), Vec::new(), cancel, dir, sel));
+    };
     let loaded = (|| -> Result<Loaded> {
-        let cat = store.load_catalog(&cancel)?;
-        let r = cat.resolve_polish()?;
         let vocab = store.load_vocab(&r, &cancel)?;
         let style = store.load_style(&r, &cancel)?;
         let model_path = store.get(&r.model, &cancel)?;
@@ -203,9 +270,11 @@ pub fn load_model(mut cfg: Config) -> Result<Model> {
         Ok((vocab, style, Box::new(engine)))
     })();
     match loaded {
-        Ok((vocab, style, engine)) => Ok(Model::from_parts(g2p, Some(engine), vocab, style, cancel, dir)),
+        Ok((vocab, style, engine)) => Ok(Model::from_parts(g2p, Some(engine), vocab, style, cancel, dir, sel)),
         Err(e) => {
-            let _ = g2p.close();
+            if let Some(g) = g2p {
+                let _ = g.close();
+            }
             Err(e)
         }
     }
@@ -220,15 +289,16 @@ struct Chunk {
 
 impl Model {
     pub(crate) fn from_parts(
-        g2p: Box<dyn G2p>,
+        g2p: Option<Box<dyn G2p>>,
         engine: Option<Box<dyn Engine>>,
         vocab: HashMap<char, i64>,
         style: Vec<f32>,
         cancel: CancelToken,
         dir: PathBuf,
+        sel: Selection,
     ) -> Model {
         let inner = Inner { g2p, engine, vocab, style, cache: Mutex::new(HashMap::new()), warned: Mutex::new(HashSet::new()) };
-        Model { state: RwLock::new(Some(inner)), cancel, dir }
+        Model { state: RwLock::new(Some(inner)), cancel, dir, sel }
     }
 
     fn read(&self) -> RwLockReadGuard<'_, Option<Inner>> {
@@ -245,24 +315,47 @@ impl Model {
         &self.dir
     }
 
+    /// Język mówcy (id z katalogu); `None`, gdy załadowano z `skip_kokoro` bez `Config::lang`.
+    pub fn lang(&self) -> Option<&str> {
+        self.sel.lang.as_deref()
+    }
+
+    /// Id wybranego głosu; `None` jak w `lang`.
+    pub fn voice(&self) -> Option<&str> {
+        self.sel.voice.as_deref()
+    }
+
+    /// Język fonemizera (Phonemis); `None` = brak frontendu tekstowego (ja, zh bez własnego `phonemis_lang`).
+    pub fn phonemis_lang(&self) -> Option<&str> {
+        self.sel.g2p_lang.as_deref()
+    }
+
     /// Znacznik anulowania tego modelu: `cancel()` przerywa trwającą fonemizację i syntezę (patrz `CancelToken`).
     pub fn cancel_token(&self) -> CancelToken {
         self.cancel.clone()
     }
 
-    /// Zamienia tekst na IPA. Obsługuje ręczne fonemy `[tekst](/ipa/)` oraz normalizację uzupełniającą.
-    /// Zwraca jedno zdanie na linię, pusta linia = granica akapitu; puste wejście daje `""`.
+    /// Zamienia tekst na IPA. Obsługuje ręczne fonemy `[tekst](/ipa/)` oraz — dla języka fonemizera `pl` —
+    /// normalizację uzupełniającą. Zwraca jedno zdanie na linię, pusta linia = granica akapitu; puste wejście daje `""`.
     /// IPA nie jest tu filtrowane słownikiem Kokoro — robi to `synthesize`.
     pub fn text_to_ipa(&self, text: &str, opts: &TextOptions) -> Result<String> {
         let guard = self.read();
         let inner = guard.as_ref().ok_or(Error::Unloaded)?;
+        let g2p = inner.g2p.as_deref().ok_or_else(|| {
+            Error::Config(format!(
+                "język mówcy {:?} nie ma frontendu tekstowego w Phonemis — podaj gotowe IPA do synthesize (CLI: --ipa), \
+                 ustaw Config::phonemis_lang (--phonemis-lang) albo własny Config::g2p",
+                self.sel.lang.as_deref().unwrap_or("?")
+            ))
+        })?;
+        let polish = self.sel.g2p_lang.as_deref() == Some("pl"); // normalizacja i podział zdań jak w wersji Pythona
         let (text, overrides) = extract_overrides(text);
-        let text = if opts.no_normalize { text } else { normalize_pl(&text) };
+        let text = if opts.no_normalize || !polish { text } else { normalize_pl(&text) };
         debug!("[normalize] {}", show_overrides(&text, &overrides));
 
-        let paragraphs = split_sentences(&text);
+        let paragraphs = split_sentences_lang(&text, polish);
         let pieces: Vec<String> = paragraphs.iter().flatten().flat_map(|s| text_pieces(s)).collect();
-        inner.prefetch(&pieces, &self.cancel)?;
+        inner.prefetch(g2p, &pieces, &self.cancel)?;
 
         let cache = inner.cache.lock().unwrap_or_else(|e| e.into_inner());
         let ipa_of = |piece: &str| cache.get(piece).cloned().unwrap_or_default();
@@ -342,7 +435,7 @@ impl Model {
         let Some(inner) = taken else { return Ok(()) };
         let Inner { g2p, engine, .. } = inner;
         drop(engine); // niszczy sesję ONNX
-        let res = g2p.close();
+        let res = g2p.as_ref().map_or(Ok(()), |g| g.close());
         drop(g2p);
         trim::trim_native();
         res
@@ -357,7 +450,7 @@ impl Drop for Model {
 
 impl Inner {
     /// Fonemizuje jeszcze nieznane kawałki tekstu (równolegle, jeśli backend to umie).
-    fn prefetch(&self, pieces: &[String], cancel: &CancelToken) -> Result<()> {
+    fn prefetch(&self, g2p: &dyn G2p, pieces: &[String], cancel: &CancelToken) -> Result<()> {
         let todo: Vec<String> = {
             let cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
             let mut seen = HashSet::new();
@@ -366,7 +459,7 @@ impl Inner {
         if todo.is_empty() {
             return Ok(());
         }
-        let raw = self.g2p.phonemize_many(&todo, cancel)?;
+        let raw = g2p.phonemize_many(&todo, cancel)?;
         let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
         if cache.len() + todo.len() > MAX_CACHE_ENTRIES {
             cache.clear(); // prosta ochrona przed nieograniczonym wzrostem w długo żyjącym procesie
@@ -451,7 +544,8 @@ mod tests {
             }
         }
         let eng: Option<Box<dyn Engine>> = with_engine.then(|| Box::new(Shared(engine.clone())) as Box<dyn Engine>);
-        let m = Model::from_parts(Box::new(FakeG2p(closed.clone())), eng, vocab, style, CancelToken::new(), PathBuf::from("/x"));
+        let sel = Selection { lang: Some("pl".into()), voice: Some("v".into()), g2p_lang: Some("pl".into()) };
+        let m = Model::from_parts(Some(Box::new(FakeG2p(closed.clone()))), eng, vocab, style, CancelToken::new(), PathBuf::from("/x"), sel);
         (m, engine, closed)
     }
 
@@ -575,5 +669,29 @@ mod tests {
             (o.sentence_pause, o.paragraph_pause, o.clause_pause),
             (Duration::from_millis(200), Duration::from_millis(450), Duration::from_millis(80))
         );
+    }
+
+    fn model_with(sel: Selection, with_g2p: bool) -> Model {
+        let g2p: Option<Box<dyn G2p>> = with_g2p.then(|| Box::new(FakeG2p(Arc::new(AtomicBool::new(false)))) as Box<dyn G2p>);
+        Model::from_parts(g2p, None, HashMap::new(), Vec::new(), CancelToken::new(), PathBuf::from("/x"), sel)
+    }
+
+    #[test]
+    fn polish_normalization_and_splitting_only_for_polish_g2p() {
+        let de = model_with(Selection { g2p_lang: Some("de".into()), ..Default::default() }, true);
+        // bez normalizacji PL („5 zł” zostaje), wielka litera spoza ASCII/PL otwiera zdanie
+        assert_eq!(de.text_to_ipa("Es kostet 5 zł. Über alles.", &TextOptions::default()).unwrap(), "es kostet 5 zł.\nüber alles.");
+        let pl = model_with(Selection { g2p_lang: Some("pl".into()), ..Default::default() }, true);
+        assert_eq!(pl.text_to_ipa("Mam 5 zł.", &TextOptions::default()).unwrap(), "mam 5 złotych.");
+        assert_eq!(de.phonemis_lang(), Some("de"));
+    }
+
+    #[test]
+    fn model_without_g2p_synthesizes_only_from_ipa() {
+        let m = model_with(Selection { lang: Some("ja".into()), voice: Some("jf_alpha".into()), g2p_lang: None }, false);
+        let err = m.text_to_ipa("こんにちは", &TextOptions::default()).unwrap_err();
+        assert!(matches!(err, Error::Config(_)) && err.to_string().contains("--ipa"), "{err}");
+        assert_eq!((m.lang(), m.voice(), m.phonemis_lang()), (Some("ja"), Some("jf_alpha"), None));
+        m.unload().unwrap(); // brak backendu nie przeszkadza w zwalnianiu
     }
 }

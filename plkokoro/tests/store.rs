@@ -115,3 +115,39 @@ fn cancelled_download_leaves_nothing() {
     assert_eq!(hf.count(), 0, "anulowane pobieranie użyło sieci");
     assert!(files_under(tmp.path()).is_empty());
 }
+
+#[test]
+fn download_selected_voice_and_list_voices() {
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+    let paths = download_model(&Config { lang: Some("de".into()), voice: Some("dm_b".into()), ..cfg(tmp.path(), &hf.url) }).unwrap();
+    assert!(paths.iter().any(|p| p.ends_with("voices/de_b.bin")), "{paths:?}");
+    assert!(!paths.iter().any(|p| p.ends_with("voices/pl.bin")), "{paths:?}");
+
+    let voices = plkokoro::list_voices(&cfg(tmp.path(), &hf.url)).unwrap();
+    let ids: Vec<(&str, &str)> = voices.iter().map(|v| (v.lang.as_str(), v.id.as_str())).collect();
+    assert_eq!(ids, [("pl", "v1"), ("pl", "v2"), ("de", "df_a"), ("de", "dm_b"), ("pt-br", "pf_a"), ("ja", "jf_a")]);
+    let v2 = &voices[1];
+    assert!(v2.is_default && v2.display_name == "Dwa" && v2.gender == "male" && v2.g2p_lang.as_deref() == Some("pl"));
+    assert_eq!(voices[4].g2p_lang.as_deref(), Some("pt"));
+    assert_eq!(voices[5].g2p_lang, None, "ja: external-required");
+}
+
+#[test]
+fn read_only_model_dir_gives_actionable_error() {
+    use std::os::unix::fs::PermissionsExt;
+    let hf = fake_hf();
+    let tmp = tempfile::tempdir().unwrap();
+    download_model(&cfg(tmp.path(), &hf.url)).unwrap(); // jak pakiet Nix: głos pl jest, niemieckiego nie ma
+    let base = tmp.path().join(REVISION);
+    let set_mode = |mode| {
+        for d in [base.clone(), base.join("voices")] {
+            std::fs::set_permissions(&d, std::fs::Permissions::from_mode(mode)).unwrap();
+        }
+    };
+    set_mode(0o555);
+    let err = download_model(&Config { lang: Some("de".into()), ..cfg(tmp.path(), &hf.url) }).unwrap_err();
+    set_mode(0o755); // żeby tempdir dało się usunąć
+    let m = err.to_string();
+    assert!(matches!(err, Error::Config(_)) && m.contains("tylko do odczytu") && m.contains("plkokoro.voices"), "{m}");
+}

@@ -12,14 +12,20 @@ plkokoro::write_wav("out.wav", &wav)?;
 ```
 
 ```fish
-devenv shell && pk-phonemis-build && pk-fetch-model && pk-doctor
+devenv shell && pk-doctor          # Phonemis i model Kokoro to pakiety Nix (nix/)
 cargo run --release -p plkokoro-cli -- "Cześć, to jest test." -o out.wav
-pk-test
+cargo run --release -p plkokoro-cli -- --list-voices                     # 11 języków mówcy, 159 głosów
+pk-test -- --test-threads=1
 ```
+
+Domyślnie wszystko jest polskie, ale język mówcy (`--lang` / `Config::lang`), głos (`--voice`) i język fonemizera
+(`--phonemis-lang`) wybiera się niezależnie; w devenv głosy i języki Phonemis to opcje `plkokoro.voices`
+i `plkokoro.phonemisLanguages` ([docs/devenv.md](docs/devenv.md)).
 
 **Dokumentacja: [docs/README.md](docs/README.md)** (działanie, API, CLI, devenv, procedura testów).
 
-Stan: 43 testy przechodzą (kod wyjścia 0) na ONNX Runtime 1.21.0 / 1.22.0 / 1.23.2 / 1.30.0. **Niesprawdzone**: prawdziwe
-wagi Phonemis i model Kokoro (akceptacja A1–A9), providery GPU, TLS, `devenv shell`, pamięć po `unload` z prawdziwym
-modelem — patrz [docs/testy.md](docs/testy.md#czego-testy-nie-pokrywają). Znana różnica względem Go: `unload` nie oddaje
+Stan: 53 testy przechodzą uruchamiane po kolei (ORT 1.27.1 z nixpkgs; wcześniej 43 na 1.21.0 / 1.22.0 / 1.23.2 / 1.30.0);
+równolegle test `wav_engine` bywa przerywany przez błąd crate'a `ort` ([docs/testy.md](docs/testy.md), poziom 2).
+Synteza na prawdziwych danych sprawdzona dla pl i de. **Niesprawdzone**: pozostałe języki odsłuchem, providery GPU, TLS,
+pamięć po `unload` z prawdziwym modelem — patrz [docs/testy.md](docs/testy.md#czego-testy-nie-pokrywają). Znana różnica względem Go: `unload` nie oddaje
 pamięci samej biblioteki ORT ([docs/dzialanie.md](docs/dzialanie.md), §6).

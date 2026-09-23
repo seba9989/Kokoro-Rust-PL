@@ -84,8 +84,22 @@ fn is_upper_pl(c: char) -> bool {
 pub(crate) const PH_OPEN: char = '\u{E000}';
 
 /// Akapity -> zdania. Zdanie zaczynamy tylko przed wielką literą (mniej fałszywych cięć, np. po „np. kot"); znacznik
-/// ręcznego IPA też otwiera zdanie.
+/// ręcznego IPA też otwiera zdanie. Wielka litera = ASCII albo polska (jak w wersji Pythona).
 pub fn split_sentences(text: &str) -> Vec<Vec<String>> {
+    split_sentences_with(text, is_upper_pl)
+}
+
+/// Jak `split_sentences`, ale dla dowolnego języka: `polish == false` uznaje każdą wielką literę Unicode
+/// („Ärger. Über…”, „École”).
+pub fn split_sentences_lang(text: &str, polish: bool) -> Vec<Vec<String>> {
+    if polish {
+        split_sentences(text)
+    } else {
+        split_sentences_with(text, char::is_uppercase)
+    }
+}
+
+fn split_sentences_with(text: &str, is_upper: fn(char) -> bool) -> Vec<Vec<String>> {
     let mut out = Vec::new();
     for para in text.split('\n') {
         let para = para.trim();
@@ -93,13 +107,13 @@ pub fn split_sentences(text: &str) -> Vec<Vec<String>> {
             continue;
         }
         let sents: Vec<String> =
-            split_sentence_boundaries(para).into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+            split_sentence_boundaries(para, is_upper).into_iter().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
         out.push(sents);
     }
     out
 }
 
-fn split_sentence_boundaries(s: &str) -> Vec<&str> {
+fn split_sentence_boundaries(s: &str, is_upper: fn(char) -> bool) -> Vec<&str> {
     let mut parts = Vec::new();
     let (mut start, mut i) = (0usize, 0usize);
     while i < s.len() {
@@ -116,7 +130,7 @@ fn split_sentence_boundaries(s: &str) -> Vec<&str> {
             }
             j += c2.len_utf8();
         }
-        if sentence_break_before(&s[..i]) && sentence_start_after(&s[j..]) {
+        if sentence_break_before(&s[..i]) && sentence_start_after(&s[j..], is_upper) {
             parts.push(&s[start..i]);
             start = j;
         }
@@ -137,7 +151,7 @@ fn sentence_break_before(prefix: &str) -> bool {
     false
 }
 
-fn sentence_start_after(rest: &str) -> bool {
+fn sentence_start_after(rest: &str, is_upper: fn(char) -> bool) -> bool {
     let mut it = rest.chars();
     let Some(mut c) = it.next() else { return false };
     if "\"„“(«".contains(c) {
@@ -146,7 +160,7 @@ fn sentence_start_after(rest: &str) -> bool {
             None => return false,
         }
     }
-    is_upper_pl(c) || c == PH_OPEN
+    is_upper(c) || c == PH_OPEN
 }
 
 // ---------------------------------------------------------------------------
@@ -210,4 +224,18 @@ fn pack_ipa_level(ipa: &str, limit: usize, level: usize) -> Vec<String> {
         out.push(cur);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn non_polish_uppercase_starts_a_sentence_only_outside_polish_mode() {
+        let text = "Guten Tag. Über alles. École!";
+        assert_eq!(split_sentences_lang(text, false), vec![vec!["Guten Tag.", "Über alles.", "École!"]]);
+        // tryb polski (zgodny z Pythonem) nie zna „Ü” ani „É”
+        assert_eq!(split_sentences_lang(text, true), vec![vec!["Guten Tag. Über alles. École!"]]);
+        assert_eq!(split_sentences_lang("Ala. Łódź.", true), split_sentences("Ala. Łódź."));
+    }
 }

@@ -11,7 +11,7 @@
  └─────────┬───────────┘
            ▼
  ┌─────────────────────┐   zł, %, &, skróty, godziny, cudzysłowy   (normalize_pl; można wyłączyć)
- │ 2. normalizacja PL  │
+ │ 2. normalizacja PL  │   (tylko fonemizer pl)
  └─────────┬───────────┘
            ▼
  ┌─────────────────────┐   akapity (\n) → zdania (koniec zdania + wielka litera)
@@ -82,7 +82,8 @@ nie jest fonemizowany.
 
 ### 3.2 Normalizacja (`normalize_pl`)
 
-Uzupełnia to, czego Phonemis PL nie robi. Heurystyki, świadomie ograniczone:
+Uzupełnia to, czego Phonemis PL nie robi. Działa **tylko dla fonemizera `pl`** (dla innych języków tekst trafia do
+Phonemis bez tego etapu). Heurystyki, świadomie ograniczone:
 
 | Wejście | Wynik | Uwagi |
 |---|---|---|
@@ -103,7 +104,9 @@ jako „dwa tysiące dwadzieścia cztery” w każdym przypadku; `27 marca 2026`
 
 Akapity dzieli nowa linia. Granica zdania to biały znak po `. ! ? …` (opcjonalnie z domykającym `" ” » )`),
 po którym następuje **wielka litera** (opcjonalnie po `" „ “ ( «`) albo wstawka ręczna. Warunek wielkiej litery
-zapobiega fałszywym cięciom po skrótach: w „Czwarte, np. kot.” nie ma granicy po „np.”.
+zapobiega fałszywym cięciom po skrótach: w „Czwarte, np. kot.” nie ma granicy po „np.”. Dla fonemizera `pl` wielka
+litera to ASCII albo `ĄĆĘŁŃÓŚŹŻ` (jak w Pythonie, pilnuje tego `parity.rs`); dla innych języków — każda wielka litera
+Unicode („Über”, „École”).
 
 ### 3.4 G2P (Phonemis)
 
@@ -114,6 +117,11 @@ kontekstu podprocesy są zabijane (z 250 ms na domknięcie rur).
 
 Runner bez `--model` kończy się kodem 0 i zwraca same spacje — dlatego biblioteka **zawsze** podaje wagi
 i sprawdza je z góry (brak pliku i wskaźnik Git LFS dają czytelny błąd).
+
+Język fonemizera (`--lang` runnera) to `Config::phonemis_lang`, domyślnie `textFrontend.language` języka mówcy
+z `catalog.json` (np. `pt-br` → `pt`). Wagi: `<repo>/data/<język>/phonemizer_<język z _>.bin`; dla `en-us`/`en-gb`
+leżące obok `lexicon_full.json` i `tagger.json` idą do runnera jako `--lexicon`/`--tagger`. Języki `ja` i `zh` nie mają
+frontendu w Phonemis (`external-required` w katalogu) — model ładuje się wtedy bez G2P i przyjmuje tylko gotowe IPA.
 
 ## 4. Etapy syntezy
 
@@ -130,7 +138,10 @@ i sprawdza je z góry (brak pliku i wskaźnik Git LFS dają czytelny błąd).
 ## 5. Model lokalnie
 
 Pliki leżą w `<model_dir>/<REVISION>/…` (`REVISION` = `v2.1.1`): `catalog.json`, plik tokenizera, głos (`voices/….bin`,
-510×256 `float32` little-endian) i model `.onnx` (ścieżki z katalogu). Katalog domyślny:
+510×256 `float32` little-endian) i model `.onnx` (ścieżki z katalogu). Które pliki — wynika z języka mówcy
+(`Config::lang`, domyślnie `pl`) i głosu (`Config::voice`, domyślnie `defaultVoiceId` języka): głos wskazuje model
+(`modelId`), model — tokenizer. Pobierane są tylko pliki wybranego głosu. Katalog tylko do odczytu (pakiet Nix
+w `/nix/store`) bez wybranego głosu daje błąd z podpowiedzią zamiast `Permission denied`. Katalog domyślny:
 `KOKORO_MODEL_DIR` albo `<katalog cache użytkownika>/kokoro-pl/kokoro-kmp-models`. **Układ jest wspólny z wersją Pythona.**
 
 Kolejność szukania pliku: (1) jest na dysku i niepusty → zero sieci; (2) `offline` → błąd z instrukcją; (3) pobranie
@@ -191,5 +202,6 @@ Pojedynczej inferencji ani zablokowanego odczytu z sieci nie da się przerwać.
 - Normalizacja to heurystyki; `zł` z ułamkiem zawsze „złotych”.
 - Nie ma strumieniowania: `synthesize` zwraca całość; anulowanie działa między porcjami.
 - `unload` nie oddaje pamięci samej biblioteki ORT (sekcja 6).
-- Runner jest zlinkowany dynamicznie; w Nixie zależy od ścieżek w `/nix/store` (patrz [phonemis-build.md](phonemis-build.md)).
+- Runner jest zlinkowany dynamicznie; zbudowany przez `nix/phonemis.nix` zależy od ścieżek w `/nix/store` ([devenv.md](devenv.md)).
+- Normalizacja uzupełniająca istnieje tylko dla polskiego; inne języki polegają wyłącznie na Phonemis.
 - Wybór `\w`/`\d` w granicach: litera/liczba Unicode (`\p{L}`, `\p{N}`, `_`) jak w Pythonie; cyfry w wyrażeniach tylko ASCII.

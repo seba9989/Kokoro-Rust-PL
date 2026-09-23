@@ -5,21 +5,31 @@
 //! plkokoro --phonemize-only "Mam 123 zł, 5% rabatu."      # tylko IPA, bez Kokoro
 //! plkokoro --ipa "kɔkˈɔrɔ" -o kokoro.wav                   # synteza prosto z IPA
 //! plkokoro --fetch-only                                     # pobierz model Kokoro do katalogu lokalnego
+//! plkokoro --list-voices                                    # dostępne języki i głosy
+//! plkokoro --lang de --voice df_anna "Guten Tag."           # inny język mówcy / głos
+//! plkokoro --lang en-us --phonemis-lang pl "Dzień dobry."   # polski tekst, angielski głos
 //! ```
 //! Kody wyjścia: 0 sukces, 1 błąd działania, 2 błędne użycie (flagi).
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use clap::Parser;
-use plkokoro::{download_model, load_model, write_wav, CancelToken, Config, SynthOptions, TextOptions, SAMPLE_RATE, STYLE_ROWS};
+use plkokoro::{
+    download_model, list_voices, load_model, write_wav, CancelToken, Config, SynthOptions, TextOptions, SAMPLE_RATE, STYLE_ROWS,
+};
 
 const DEFAULT_TEXT: &str = "Cześć, to jest test polskiej syntezy mowy Kokoro.";
 
 #[derive(Parser, Debug)]
-#[command(name = "plkokoro", about = "Polski TTS: Kokoro (ONNX) + Phonemis", disable_version_flag = true)]
+#[command(
+    name = "plkokoro",
+    about = "TTS: Kokoro (ONNX) + Phonemis — domyślnie polski; --lang, --voice, --phonemis-lang wybierają inne",
+    disable_version_flag = true
+)]
 struct Args {
     /// Tekst do syntezy (kilka słów jest łączonych spacją); domyślnie zdanie testowe.
     text: Vec<String>,
@@ -52,9 +62,25 @@ struct Args {
     #[arg(long = "phonemize-only")]
     phonemize_only: bool,
 
-    /// Pobierz model Kokoro do --model-dir i zakończ.
+    /// Pobierz model Kokoro (wybrany język i głos) do --model-dir i zakończ.
     #[arg(long = "fetch-only")]
     fetch_only: bool,
+
+    /// Wypisz głosy z catalog.json (język, id, nazwa, płeć, model, język fonemizera) i zakończ.
+    #[arg(long = "list-voices")]
+    list_voices: bool,
+
+    /// Język mówcy, np. pl, de, en-us (albo KOKORO_LANG; domyślnie pl).
+    #[arg(long)]
+    lang: Option<String>,
+
+    /// Głos w języku mówcy, np. pm_mateusz, af_heart (albo KOKORO_VOICE; domyślnie głos domyślny języka).
+    #[arg(long)]
+    voice: Option<String>,
+
+    /// Język fonemizera Phonemis (albo PHONEMIS_LANG; domyślnie wynika z języka mówcy).
+    #[arg(long = "phonemis-lang")]
+    phonemis_lang: Option<String>,
 
     /// Katalog lokalnej kopii modelu (albo KOKORO_MODEL_DIR).
     #[arg(long = "model-dir")]
@@ -72,7 +98,7 @@ struct Args {
     #[arg(long)]
     runner: Option<PathBuf>,
 
-    /// Ścieżka do phonemizer_pl.bin (albo PHONEMIS_MODEL).
+    /// Wagi Phonemis dla języka fonemizera, np. phonemizer_pl.bin (albo PHONEMIS_MODEL).
     #[arg(long = "model")]
     weights: Option<PathBuf>,
 
@@ -132,6 +158,9 @@ fn run(a: Args) -> u8 {
     let cfg = Config {
         model_dir: a.model_dir,
         offline: a.offline,
+        lang: a.lang,
+        voice: a.voice,
+        phonemis_lang: a.phonemis_lang,
         phonemis_runner: a.runner,
         phonemis_weights: a.weights,
         ort_library: a.ort_lib,
@@ -140,6 +169,26 @@ fn run(a: Args) -> u8 {
         cancel: Some(cancel),
         ..Default::default()
     };
+
+    if a.list_voices {
+        return match list_voices(&cfg) {
+            Ok(voices) => {
+                // writeln zamiast println: `--list-voices | head` zamyka rurę i println by spanikował
+                let mut out = std::io::stdout().lock();
+                let _ = (|| -> std::io::Result<()> {
+                    writeln!(out, "{:<6} {:<16} {:<14} {:<7} {:<22} FONEMIZER", "JĘZYK", "GŁOS", "NAZWA", "PŁEĆ", "MODEL")?;
+                    for v in voices {
+                        let id = if v.is_default { format!("{}*", v.id) } else { v.id };
+                        let g2p = v.g2p_lang.unwrap_or_else(|| "— (tylko --ipa)".into());
+                        writeln!(out, "{:<6} {:<16} {:<14} {:<7} {:<22} {g2p}", v.lang, id, v.display_name, v.gender, v.model_id)?;
+                    }
+                    writeln!(out, "* = głos domyślny języka")
+                })();
+                0
+            }
+            Err(e) => fail(e),
+        };
+    }
 
     if a.fetch_only {
         return match download_model(&cfg) {

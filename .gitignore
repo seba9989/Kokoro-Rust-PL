@@ -8,7 +8,7 @@ devenv.local.yaml
 /target/
 
 # artefakty
-# lokalna instalacja Phonemis (runner + wagi), tworzy ją pk-phonemis-build
+# dawne lokalne instalacje Phonemis i modelu (teraz pakiety Nix w nix/)
 
 /phonemis/
 /bin/

@@ -10,19 +10,16 @@ plików modelu i ten sam korpus zgodności.
 | Plik | Po co |
 |---|---|
 | [dzialanie.md](dzialanie.md) | jak to działa w środku: przepływ danych, formaty, model lokalnie, cykl życia i pamięć, decyzje, ograniczenia |
-| [api.md](api.md) | referencja biblioteki: `Config`, cztery operacje, opcje, błędy, własny backend `G2p`, cechy Cargo |
+| [api.md](api.md) | referencja biblioteki: `Config`, cztery operacje, wybór języka mówcy / głosu / języka fonemizera, opcje, błędy, własny backend `G2p`, cechy Cargo |
 | [cli.md](cli.md) | referencja CLI: opcje, kody wyjścia, logi, przykłady |
-| [phonemis-build.md](phonemis-build.md) | budowanie `phonemis_runner` w katalogu tymczasowym i instalacja minimalnego zestawu (wspólne z wersją Go) |
-| [devenv.md](devenv.md) | środowisko devenv/Nix: co ustawia, polecenia `pk-*`, nadpisywanie |
+| [devenv.md](devenv.md) | środowisko devenv/Nix: pakiety Nix (Phonemis, model Kokoro), opcje `plkokoro.voices` / `plkokoro.phonemisLanguages`, polecenia `pk-*`, podbijanie wersji |
 | [testy.md](testy.md) | **pełna procedura testów**: poziomy, polecenia, oczekiwane wyniki, diagnostyka, czego testy nie pokrywają |
 | `../plkokoro/examples/` | uruchamialne przykłady (`basic`, `custom_g2p`, `memory`), kompilowane przez `cargo build --examples` |
 
 ## Szybki start
 
 ```fish
-devenv shell                      # Rust, ORT z nixpkgs, zmienne środowiskowe
-pk-phonemis-build                 # runner + wagi -> ./phonemis (build w /tmp)
-pk-fetch-model                    # model Kokoro -> $KOKORO_MODEL_DIR (raz)
+devenv shell                      # Rust, ORT, Phonemis i model Kokoro jako pakiety Nix (pierwsze wejście buduje/pobiera)
 pk-doctor                         # czy wszystko jest na miejscu
 cargo run --release -p plkokoro-cli -- "Cześć, to jest test." -o out.wav
 pk-test                           # cargo test --workspace
@@ -47,7 +44,7 @@ plkokoro/               BIBLIOTEKA
   tests/                  parity, g2p, store, model, wav_engine + common/ (fixtures)
   examples/               basic, custom_g2p, memory
 plkokoro-cli/           CLI (src/main.rs) i jego testy end-to-end (tests/cli.rs)
-scripts/                phonemis-build.sh (budowanie Phonemis), test-phonemis-build.sh (jego testy)
+nix/                    phonemis.nix, kokoro-model.nix (pakiety Nix), catalog.json (kopia katalogu modeli v2.1.1)
 testdata/               parity.json (referencja z Pythona), tiny_kokoro.onnx (atrapa modelu), generatory
 docs/                   ta dokumentacja
 devenv.nix, devenv.yaml środowisko devenv
@@ -58,6 +55,7 @@ devenv.nix, devenv.yaml środowisko devenv
 - Rust >= 1.88 (MSRV crate'a `ort`) i kompilator C (zależność `ring` w `ureq`/`rustls`). Testowano na rustc 1.91.1.
 - `libonnxruntime.so` **>= 1.21** (`Config::ort_library` / `ORT_LIBRARY_PATH`), ładowana dynamicznie — nic nie jest
   linkowane w czasie budowania. Sprawdzone: 1.21.0, 1.22.0, 1.23.2, 1.30.0 (Linux x86_64).
-- `phonemis_runner` i wagi `phonemizer_pl.bin` (Git LFS) — patrz [phonemis-build.md](phonemis-build.md).
+- `phonemis_runner` i wagi języka fonemizera (`data/<język>/phonemizer_<język>.bin`) — w devenv pakiet `nix/phonemis.nix`
+  ([devenv.md](devenv.md)); poza nim zbuduj Phonemis (CMake, `-DBUILD_RUNNER=ON`) i pobierz wagi z Git LFS.
 - Model Kokoro pobierany raz z Hugging Face do lokalnego katalogu (rozmiar zależy od wariantu w repo HF; nie
   mierzyłem prawdziwego pliku).

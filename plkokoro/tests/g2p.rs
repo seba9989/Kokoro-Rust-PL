@@ -13,7 +13,7 @@ use plkokoro::{CancelToken, Error, G2p, RunnerG2p};
 fn runner_basics() {
     let tmp = tempfile::tempdir().unwrap();
     let (runner, weights) = fake_runner(tmp.path());
-    let g = RunnerG2p::new(&runner, None, None).unwrap(); // wagi wyprowadzone z układu repo
+    let g = RunnerG2p::new(&runner, "pl", None, None).unwrap(); // wagi wyprowadzone z układu repo
     assert_eq!(g.weights().canonicalize().unwrap(), weights.canonicalize().unwrap());
     let c = CancelToken::new();
     assert_eq!(g.phonemize("Cześć, ŚWIAT! abc", &c).unwrap(), "cześć, Świat! abc"); // tr zmienia tylko ASCII A-Z
@@ -31,25 +31,25 @@ fn runner_config_errors() {
     let (runner, weights) = fake_runner(tmp.path());
 
     let err = |r: plkokoro::Result<RunnerG2p>| r.err().map(|e| e.to_string()).unwrap_or_default();
-    assert!(err(RunnerG2p::new("/nie/ma/runnera", None, None)).contains("brak phonemis_runner"));
+    assert!(err(RunnerG2p::new("/nie/ma/runnera", "pl", None, None)).contains("brak phonemis_runner"));
 
     let noexec = tmp.path().join("r");
     std::fs::write(&noexec, "x").unwrap();
     std::fs::set_permissions(&noexec, std::fs::Permissions::from_mode(0o644)).unwrap();
-    assert!(err(RunnerG2p::new(&noexec, Some(weights.clone()), None)).contains("wykonywalnym"));
+    assert!(err(RunnerG2p::new(&noexec, "pl", Some(weights.clone()), None)).contains("wykonywalnym"));
 
     // wskaźnik Git LFS zamiast wag
     let lfs = tmp.path().join("w.bin");
     std::fs::write(&lfs, "version https://git-lfs.github.com/spec/v1\noid sha256:x\nsize 7094120\n").unwrap();
-    assert!(err(RunnerG2p::new(&runner, Some(lfs), None)).contains("Git LFS"));
-    assert!(err(RunnerG2p::new(&runner, Some("/nie/ma.bin".into()), None)).contains("brak wag"));
+    assert!(err(RunnerG2p::new(&runner, "pl", Some(lfs), None)).contains("Git LFS"));
+    assert!(err(RunnerG2p::new(&runner, "pl", Some("/nie/ma.bin".into()), None)).contains("brak wag"));
 }
 
 #[test]
 fn runner_parallel_error_and_cancel() {
     let tmp = tempfile::tempdir().unwrap();
     let (runner, _) = fake_runner(tmp.path());
-    let g = RunnerG2p::new(&runner, None, Some(8)).unwrap();
+    let g = RunnerG2p::new(&runner, "pl", None, Some(8)).unwrap();
     let c = CancelToken::new();
 
     let texts: Vec<String> = (0..8).map(|i| format!("SLOW zdanie {i}")).collect(); // każdy czeka 0,3 s
@@ -79,4 +79,41 @@ fn runner_parallel_error_and_cancel() {
     canceller.join().unwrap();
     assert!(matches!(r, Err(Error::Cancelled)), "{r:?}");
     assert!(start.elapsed() < Duration::from_secs(2), "anulowanie nie przerwało podprocesów: {:?}", start.elapsed());
+}
+
+#[test]
+fn runner_language_weights_and_english_extras() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (runner, _) = fake_runner(tmp.path());
+    let c = CancelToken::new();
+
+    // wagi wyprowadzane per język: data/<lang>/phonemizer_<lang z _>.bin
+    let de = fake_weights(tmp.path(), "de");
+    let g = RunnerG2p::new(&runner, "de", None, None).unwrap();
+    assert_eq!((g.lang(), g.weights()), ("de", de.as_path()));
+    assert_eq!(g.phonemize("ARGS", &c).unwrap(), format!("--lang de --model {}", de.display()));
+
+    // angielski: leksykon i tagger leżące obok wag są przekazywane runnerowi
+    let en = fake_weights(tmp.path(), "en-us");
+    assert!(en.ends_with("data/en-us/phonemizer_en_us.bin"), "{}", en.display());
+    let dir = en.parent().unwrap();
+    std::fs::write(dir.join("lexicon_full.json"), "{}").unwrap();
+    std::fs::write(dir.join("tagger.json"), "{}").unwrap();
+    let g = RunnerG2p::new(&runner, "en-us", None, None).unwrap();
+    assert_eq!(
+        g.phonemize("ARGS", &c).unwrap(),
+        format!(
+            "--lang en-us --model {} --lexicon {} --tagger {}",
+            en.display(),
+            dir.join("lexicon_full.json").display(),
+            dir.join("tagger.json").display()
+        )
+    );
+
+    let err = |r: plkokoro::Result<RunnerG2p>| r.err().map(|e| e.to_string()).unwrap_or_default();
+    // język bez wag w repo -> czytelny błąd o wagach; język spoza Phonemis -> lista dostępnych
+    assert!(err(RunnerG2p::new(&runner, "fr", None, None)).contains("data/fr/phonemizer_fr.bin"));
+    let m = err(RunnerG2p::new(&runner, "ja", None, None));
+    assert!(m.contains("nie obsługuje języka \"ja\"") && m.contains("en-us"), "{m}");
+    assert!(err(RunnerG2p::new(&runner, "../pl", None, None)).contains("nie obsługuje"));
 }
