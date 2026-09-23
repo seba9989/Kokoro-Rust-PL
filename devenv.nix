@@ -59,51 +59,13 @@ in
       cargo test --workspace "$@"
     '';
 
-    # Sprawdza to, co najczęściej psuje uruchomienie (brak runnera, brak wag języka, brak ORT, brak głosu).
-    scripts.pk-doctor.exec = ''
-      bad=0
-      ok()   { printf '  \033[32mOK\033[0m    %s\n' "$*"; }
-      warn() { printf '  \033[33mBRAK\033[0m  %s\n' "$*"; bad=1; }
-      info() { printf '  ....  %s\n' "$*"; }
-
-      echo "plkokoro-rs — diagnostyka środowiska"
-      ok "$(rustc --version) / $(cargo --version)"
-
-      if [ -f "$ORT_LIBRARY_PATH" ]; then ok "libonnxruntime: $ORT_LIBRARY_PATH"
-      else warn "libonnxruntime nie istnieje: $ORT_LIBRARY_PATH"; fi
-
-      if [ -x "$PHONEMIS_RUNNER" ]; then
-        ok "phonemis_runner: $PHONEMIS_RUNNER"
-        "$PHONEMIS_RUNNER" >/dev/null 2>&1 </dev/null
-        rc=$?
-        if [ "$rc" -ge 126 ]; then
-          warn "phonemis_runner nie uruchamia się (kod $rc)"
-        fi
-        data="$(dirname "$(dirname "$(readlink -f "$PHONEMIS_RUNNER")")")/data"
-        for lang in ${toString cfg.phonemisLanguages}; do
-          w="$data/$lang/phonemizer_''${lang//-/_}.bin"
-          if [ ! -f "$w" ]; then
-            warn "brak wag Phonemis ($lang): $w"
-          elif head -c 24 "$w" | grep -q '^version https://git-lfs'; then
-            warn "wagi Phonemis ($lang) to wskaźnik Git LFS: $w"
-          else
-            ok "wagi Phonemis ($lang): $w"
-          fi
-        done
-      else
-        warn "phonemis_runner nie istnieje albo nie jest wykonywalny: $PHONEMIS_RUNNER"
-      fi
-
-      if [ -n "$(find "$KOKORO_MODEL_DIR" -name '*.onnx' 2>/dev/null | head -n 1)" ]; then
-        ok "model Kokoro: $KOKORO_MODEL_DIR"
-        for v in $(find "$KOKORO_MODEL_DIR" -path '*/voices/*.bin' 2>/dev/null | sort); do
-          info "głos: $(basename "$(dirname "$v")")/$(basename "$v" .bin)"
-        done
-      else
-        warn "brak modelu Kokoro w $KOKORO_MODEL_DIR"
-      fi
-      exit $bad
-    '';
+    # pk-doctor pochodzi z modułu nix/devenv.nix; tu tylko własna nazwa i test toolchaina Rusta.
+    plkokoro.doctor = {
+      title = "plkokoro-rs — diagnostyka środowiska";
+      extraChecks = ''
+        ok "$(rustc --version) / $(cargo --version)"
+      '';
+    };
 
     enterShell = ''
       echo "plkokoro-rs: $(rustc --version | cut -d' ' -f1,2) | głosy: ${toString cfg.voices} | Phonemis: ${toString cfg.phonemisLanguages}"

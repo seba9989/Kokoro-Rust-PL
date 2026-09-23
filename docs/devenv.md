@@ -111,6 +111,22 @@ jego `devenv.nix`:
 | `plkokoro.phonemisLanguages` | `textFrontend.language` języków wybranych głosów (z katalogu) + `pl` | wagi Phonemis instalowane obok runnera; typ `enum`: `pl en-us en-gb de fr es it pt hi` |
 | `plkokoro.onnxruntime` | `pkgs.onnxruntime` | ONNX Runtime (≥ 1.21, asercja) dla `ORT_LIBRARY_PATH` |
 | `plkokoro.kokoroModel`, `plkokoro.phonemis` | — (tylko do odczytu) | zbudowane pakiety, np. do użycia w innych modułach |
+| `plkokoro.doctor.title` | `"plkokoro — diagnostyka środowiska"` | pierwsza linia `pk-doctor` |
+| `plkokoro.doctor.extraChecks` | `""` | własne testy projektu (bash) dopisywane do `pk-doctor`; dostępne funkcje `ok`, `warn` (= porażka, kod 1), `info` |
+
+Moduł dostarcza komendę **`pk-doctor`** każdemu projektowi, który go importuje. Sprawdza `libonnxruntime`, runner
+(istnieje, uruchamia się), wagi każdego języka z `plkokoro.phonemisLanguages`, model Kokoro i **każdy głos z
+`plkokoro.voices`**; kod wyjścia 1 przy jakimkolwiek `BRAK`. Własne testy dopisuj przez `plkokoro.doctor.extraChecks`
+— nie definiuj `scripts.pk-doctor` w projekcie (dwie definicje tej samej komendy się zderzą). Przykład (Koko-Anime):
+
+```nix
+plkokoro.doctor = {
+  title = "aplikacja Tauri + plkokoro — diagnostyka środowiska";
+  extraChecks = ''
+    command -v cargo-tauri >/dev/null && ok "cargo-tauri: $(cargo tauri --version)" || warn "brak cargo-tauri"
+  '';
+};
+```
 
 Zmienne `ORT_LIBRARY_PATH`, `PHONEMIS_RUNNER` (`<phonemis>/bin/phonemis_runner`, symlink — biblioteka rozwiązuje go
 i szuka wag obok `build/`), `KOKORO_MODEL_DIR` mają niski priorytet (`lib.mkDefault`), więc można je nadpisać.
@@ -138,7 +154,7 @@ Prefiks `pk-` nie przesłania poleceń powłoki (np. `test`).
 
 | Polecenie | Robi |
 |---|---|
-| `pk-doctor` | sprawdza: `rustc`/`cargo`, `libonnxruntime`, runner (istnieje, uruchamia się), wagi każdego języka z `plkokoro.phonemisLanguages`, model Kokoro; wypisuje głosy obecne w `KOKORO_MODEL_DIR` |
+| `pk-doctor` | z modułu (opis wyżej); to repo dopisuje przez `plkokoro.doctor.extraChecks` test `rustc`/`cargo` |
 | `pk-build` | `cargo build --release -p plkokoro-cli` i kopia binarki do `bin/plkokoro` |
 | `pk-test` | `cargo test --workspace` (dodatkowe argumenty przekazywane, np. `pk-test -- --test-threads=1`) |
 
