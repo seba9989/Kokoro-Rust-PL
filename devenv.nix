@@ -2,15 +2,14 @@
 
 # Środowisko deweloperskie dla plkokoro-rs (port Rust: Kokoro + Phonemis).
 #
-# Wszystkie zależności czasu działania to deklaratywne pakiety Nix: przypięta wersja/rewizja, sumy SHA-256,
-# budowane/pobierane przez `devenv shell` hermetycznie i cache'owane jak każdy pakiet. Nic nie jest klonowane,
-# kompilowane ani pobierane w enterShell.
-#
-#   ort          — pkgs.onnxruntime (z nixpkgs), tutaj
-#   phonemis     — moduł nix/phonemis.nix: opcja `plkokoro.phonemisLanguages`, pakiet phonemis_runner (CMake)
-#                  + wagi tych języków, PHONEMIS_RUNNER
-#   kokoro-model — moduł nix/kokoro-model.nix: opcja `plkokoro.voices`, pakiet z głosami + ich modelami ONNX
-#                  i tokenizerami (sumy SHA-256 z nix/catalog.json — kopii prawdziwego katalogu), KOKORO_MODEL_DIR
+# Zależności czasu działania dostarcza moduł nix/devenv.nix — ten sam, który inne projekty importują
+# (`imports: - plkokoro/nix` w devenv.yaml):
+#   ORT_LIBRARY_PATH  — pkgs.onnxruntime (opcja plkokoro.onnxruntime)
+#   PHONEMIS_RUNNER   — nix/pkgs/phonemis.nix: phonemis_runner (CMake) + wagi `plkokoro.phonemisLanguages`
+#   KOKORO_MODEL_DIR  — nix/pkgs/kokoro-model.nix: głosy `plkokoro.voices` + ich modele ONNX i tokenizery
+#                       (sumy SHA-256 z nix/catalog.json — kopii prawdziwego katalogu)
+# Wszystko to deklaratywne pakiety Nix (przypięte rewizje, sumy SHA-256); nic nie jest pobierane w enterShell.
+# Tutaj dochodzi tylko to, co potrzebne do pracy nad samym repo: Rust, asercja MSRV, skrypty pk-*.
 #
 # Wybór głosów i języków (i inne nadpisania) wpisuj do devenv.local.nix — devenv wczytuje go automatycznie, jest
 # w .gitignore. Przykład:
@@ -21,16 +20,9 @@
 # Lista głosów: `plkokoro --list-voices` (albo nix/catalog.json).
 let
   cfg = config.plkokoro;
-
-  # libonnxruntime.so z nixpkgs. Crate `ort` ładuje ją dynamicznie (cecha load-dynamic), więc nic nie jest
-  # linkowane w czasie budowania. Testowane z 1.21.0, 1.22.0, 1.23.2, 1.27.1 i 1.30.0.
-  ort = pkgs.onnxruntime;
 in
 {
-  imports = [
-    ./nix/phonemis.nix
-    ./nix/kokoro-model.nix
-  ];
+  imports = [ ./nix/devenv.nix ];
 
   config = {
     # Rust z nixpkgs (rustc, cargo, clippy, rustfmt, rust-analyzer). Żeby użyć nowszego toolchaina niż w nixpkgs:
@@ -38,24 +30,16 @@ in
     languages.rust.enable = true;
 
     # Kompilator C dla zależności budowanych z C (ring w ureq/rustls) dostarcza stdenv devenv.
-    # Pakiety Phonemis i modelu dodają moduły z nix/.
+    # Pakiety Phonemis i modelu dodaje moduł nix/devenv.nix.
     packages = [
       pkgs.git # devenv nie dodaje gita do powłoki
     ];
 
-    env = {
-      # Czytane przez bibliotekę (Config::* ma pierwszeństwo). PHONEMIS_RUNNER i KOKORO_MODEL_DIR ustawiają moduły
-      # z nix/ (niski priorytet — nadpisywalne w devenv.local.nix).
-      ORT_LIBRARY_PATH = "${lib.getLib ort}/lib/libonnxruntime.so";
-      # KOKORO_LANG / KOKORO_VOICE celowo nieustawione: zmieniałyby domyślne zachowanie testów (`pk-test`).
-    };
+    # ORT_LIBRARY_PATH, PHONEMIS_RUNNER i KOKORO_MODEL_DIR ustawia nix/devenv.nix (niski priorytet — nadpisywalne
+    # w devenv.local.nix). KOKORO_LANG / KOKORO_VOICE celowo nieustawione: zmieniałyby domyślne zachowanie testów.
 
-    # Czytelny błąd zamiast tajemniczego "unsupported API version" / "no matching package" przy zbyt starym nixpkgs.
+    # Czytelny błąd zamiast "no matching package" przy zbyt starym nixpkgs (asercja ORT jest w nix/devenv.nix).
     assertions = [
-      {
-        assertion = lib.versionAtLeast ort.version "1.21";
-        message = "plkokoro-rs wymaga libonnxruntime >= 1.21, a wybrany nixpkgs ma ${ort.version}. Zaktualizuj input nixpkgs w devenv.yaml.";
-      }
       {
         assertion = lib.versionAtLeast config.languages.rust.toolchain.rustc.version "1.88";
         message = "plkokoro-rs wymaga Rusta >= 1.88 (MSRV crate'a ort), a wybrany nixpkgs ma ${config.languages.rust.toolchain.rustc.version}. Zaktualizuj nixpkgs albo ustaw languages.rust.channel = \"stable\".";

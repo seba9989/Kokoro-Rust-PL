@@ -148,7 +148,7 @@ i głosu (2026-09-23): ORT 1.27.1 z nixpkgs, rustc 1.98.1, `--test-threads=1` = 
 devenv shell -- pk-doctor
 ```
 
-**Kryterium zaliczenia:** `pk-doctor` bez `BRAK`, z liniami wag dla każdego języka i głosów z listy. `nix/phonemis.nix` ma `installCheckPhase`: runner
+**Kryterium zaliczenia:** `pk-doctor` bez `BRAK`, z liniami wag dla każdego języka i głosów z listy. `nix/pkgs/phonemis.nix` ma `installCheckPhase`: runner
 fonemizuje „Test 123.” w każdym języku i musi dać niepuste IPA (w logu `phonemis pl: tˈɛst stˈɔ dvadʒˈɛɕtɕa tʃˈɨ.`).
 Złe sumy SHA-256 przerywają pobieranie. Nieznany głos/język przerywa już ewaluację z listą dostępnych.
 
@@ -281,7 +281,7 @@ sam plik przez `#[path]`. Zachowanie fałszywego runnera zależy od **treści te
 | `runner_parallel_error_and_cancel`: zbyt długo | wolna maszyna (próg 1,5 s dla 8 zdań po 0,3 s) albo jeden rdzeń (`workers`) |
 | `http_errors_and_truncation` wisi | brak limitów czasu w kliencie HTTP albo serwer testowy nie zamyka połączenia (używamy surowego TCP, nie `tiny_http`) |
 | `SIGABRT` w `wav_engine` przy równoległym `pk-test` | znany problem `ort` (poziom 2) — uruchom `pk-test -- --test-threads=1` |
-| budowanie `nix/phonemis.nix` pada na kompilacji | nowszy kompilator wymaga kolejnych nagłówków w liście `-include` (`NIX_CFLAGS_COMPILE`) |
+| budowanie `nix/pkgs/phonemis.nix` pada na kompilacji | nowszy kompilator wymaga kolejnych nagłówków w liście `-include` (`NIX_CFLAGS_COMPILE`) |
 | `hash mismatch` przy `devenv shell` | zmieniony plik po stronie HF/GitHub — sprawdź rewizję i sumy ([devenv.md](devenv.md), „Podbijanie wersji”) |
 | A5: cisza lub szum | zły model/głos w katalogu modelu (np. `KOKORO_MODEL_DIR` nadpisany ręcznie) |
 

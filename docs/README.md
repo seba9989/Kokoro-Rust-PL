@@ -12,7 +12,7 @@ plików modelu i ten sam korpus zgodności.
 | [dzialanie.md](dzialanie.md) | jak to działa w środku: przepływ danych, formaty, model lokalnie, cykl życia i pamięć, decyzje, ograniczenia |
 | [api.md](api.md) | referencja biblioteki: `Config`, cztery operacje, wybór języka mówcy / głosu / języka fonemizera, opcje, błędy, własny backend `G2p`, cechy Cargo |
 | [cli.md](cli.md) | referencja CLI: opcje, kody wyjścia, logi, przykłady |
-| [devenv.md](devenv.md) | środowisko devenv/Nix: pakiety Nix (Phonemis, model Kokoro), opcje `plkokoro.voices` / `plkokoro.phonemisLanguages`, polecenia `pk-*`, podbijanie wersji |
+| [devenv.md](devenv.md) | Nix: devenv, moduł dla innych projektów (`devenv.yaml` / flake), `nix run`, pakiety (Phonemis, model Kokoro, CLI), opcje `plkokoro.voices` / `plkokoro.phonemisLanguages`, polecenia `pk-*`, podbijanie wersji |
 | [testy.md](testy.md) | **pełna procedura testów**: poziomy, polecenia, oczekiwane wyniki, diagnostyka, czego testy nie pokrywają |
 | `../plkokoro/examples/` | uruchamialne przykłady (`basic`, `custom_g2p`, `memory`), kompilowane przez `cargo build --examples` |
 
@@ -44,7 +44,8 @@ plkokoro/               BIBLIOTEKA
   tests/                  parity, g2p, store, model, wav_engine + common/ (fixtures)
   examples/               basic, custom_g2p, memory
 plkokoro-cli/           CLI (src/main.rs) i jego testy end-to-end (tests/cli.rs)
-nix/                    phonemis.nix, kokoro-model.nix (pakiety Nix), catalog.json (kopia katalogu modeli v2.1.1)
+nix/                    devenv.nix (moduł devenv), modules/ (opcje), pkgs/ (pakiety Nix), catalog.json (kopia katalogu v2.1.1)
+flake.nix               wyjścia flake: CLI, pakiety, lib.mk*, devenvModules, overlays
 testdata/               parity.json (referencja z Pythona), tiny_kokoro.onnx (atrapa modelu), generatory
 docs/                   ta dokumentacja
 devenv.nix, devenv.yaml środowisko devenv
@@ -55,7 +56,7 @@ devenv.nix, devenv.yaml środowisko devenv
 - Rust >= 1.88 (MSRV crate'a `ort`) i kompilator C (zależność `ring` w `ureq`/`rustls`). Testowano na rustc 1.91.1.
 - `libonnxruntime.so` **>= 1.21** (`Config::ort_library` / `ORT_LIBRARY_PATH`), ładowana dynamicznie — nic nie jest
   linkowane w czasie budowania. Sprawdzone: 1.21.0, 1.22.0, 1.23.2, 1.30.0 (Linux x86_64).
-- `phonemis_runner` i wagi języka fonemizera (`data/<język>/phonemizer_<język>.bin`) — w devenv pakiet `nix/phonemis.nix`
+- `phonemis_runner` i wagi języka fonemizera (`data/<język>/phonemizer_<język>.bin`) — w devenv pakiet `nix/pkgs/phonemis.nix`
   ([devenv.md](devenv.md)); poza nim zbuduj Phonemis (CMake, `-DBUILD_RUNNER=ON`) i pobierz wagi z Git LFS.
 - Model Kokoro pobierany raz z Hugging Face do lokalnego katalogu (rozmiar zależy od wariantu w repo HF; nie
   mierzyłem prawdziwego pliku).

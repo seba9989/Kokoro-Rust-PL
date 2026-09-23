@@ -202,6 +202,6 @@ Pojedynczej inferencji ani zablokowanego odczytu z sieci nie da się przerwać.
 - Normalizacja to heurystyki; `zł` z ułamkiem zawsze „złotych”.
 - Nie ma strumieniowania: `synthesize` zwraca całość; anulowanie działa między porcjami.
 - `unload` nie oddaje pamięci samej biblioteki ORT (sekcja 6).
-- Runner jest zlinkowany dynamicznie; zbudowany przez `nix/phonemis.nix` zależy od ścieżek w `/nix/store` ([devenv.md](devenv.md)).
+- Runner jest zlinkowany dynamicznie; zbudowany przez `nix/pkgs/phonemis.nix` zależy od ścieżek w `/nix/store` ([devenv.md](devenv.md)).
 - Normalizacja uzupełniająca istnieje tylko dla polskiego; inne języki polegają wyłącznie na Phonemis.
 - Wybór `\w`/`\d` w granicach: litera/liczba Unicode (`\p{L}`, `\p{N}`, `_`) jak w Pythonie; cyfry w wyrażeniach tylko ASCII.
